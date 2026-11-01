@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">GeoTrack Enterprise</string>
+    <string name="tracking_active_title">Field Shift Active</string>
+    <string name="tracking_notification_channel">Field Shift Tracking Service</string>
+    <string name="tracking_notification_desc">Continuous live GPS telematics and trip calculation</string>
+</resources>

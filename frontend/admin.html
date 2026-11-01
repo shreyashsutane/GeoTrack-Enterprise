@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GeoTrack Enterprise - Admin Portal</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+
+  <!-- Navbar -->
+  <header class="navbar">
+    <a href="admin.html" class="nav-brand">
+      <div class="brand-icon"><i class="fa-solid fa-satellite-dish"></i></div>
+      <span>GeoTrack Admin</span>
+    </a>
+
+    <div class="nav-links">
+      <a href="manager.html" class="btn btn-secondary" style="font-size:0.82rem;">
+        <i class="fa-solid fa-map-location-dot"></i> View Manager Map
+      </a>
+      <div class="user-badge">
+        <i class="fa-solid fa-shield-halved" style="color:var(--accent-purple);"></i>
+        <span id="navUserName">Administrator</span>
+        <span class="role-pill role-admin">Super Admin</span>
+      </div>
+      <button class="btn btn-danger" style="padding:6px 12px; font-size:0.82rem;" onclick="logout()">
+        <i class="fa-solid fa-right-from-bracket"></i> Logout
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="container">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; flex-wrap:wrap; gap:16px;">
+      <div>
+        <h1 style="font-size:1.6rem; font-weight:700;">Enterprise Access & User Management</h1>
+        <p style="color:var(--text-secondary); font-size:0.9rem;">Provision field agents, assign branch managers, and enforce asset boundaries</p>
+      </div>
+
+      <div style="display:flex; gap:12px;">
+        <button class="btn btn-secondary" onclick="openAssignModal()">
+          <i class="fa-solid fa-link"></i> Assign 5–10 Assets
+        </button>
+        <button class="btn btn-primary" onclick="openCreateUserModal()">
+          <i class="fa-solid fa-user-plus"></i> Create New User
+        </button>
+      </div>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-header"><span>Total Users</span><i class="fa-solid fa-users" style="color:var(--accent-cyan);"></i></div>
+        <div class="stat-value" id="statTotalUsers">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-header"><span>Branch Managers</span><i class="fa-solid fa-user-tie" style="color:var(--accent-purple);"></i></div>
+        <div class="stat-value" id="statManagers">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-header"><span>Active Field Agents</span><i class="fa-solid fa-motorcycle" style="color:var(--accent-green);"></i></div>
+        <div class="stat-value" id="statAgents">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-header"><span>Security Status</span><i class="fa-solid fa-lock" style="color:var(--accent-orange);"></i></div>
+        <div class="stat-value" style="font-size:1.2rem; color:var(--accent-green); margin-top:14px;"><i class="fa-solid fa-shield-check"></i> Argon2id Active</div>
+      </div>
+    </div>
+
+    <!-- Users Table Card -->
+    <div class="card-table">
+      <div class="table-header-bar">
+        <div style="display:flex; align-items:center; gap:12px; flex:1; max-width:400px;">
+          <input type="text" id="inputSearchUser" class="form-control" placeholder="Search by name, code or email...">
+        </div>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <select id="selectRoleFilter" class="form-control" style="width:160px;">
+            <option value="">All Roles</option>
+            <option value="SUPER_ADMIN">Super Admin</option>
+            <option value="BRANCH_MANAGER">Branch Manager</option>
+            <option value="FIELD_AGENT">Field Agent</option>
+          </select>
+          <button class="btn btn-secondary" onclick="loadUsers()"><i class="fa-solid fa-rotate-right"></i></button>
+        </div>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Employee Code</th>
+              <th>Full Name</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Created Date</th>
+            </tr>
+          </thead>
+          <tbody id="usersTableBody">
+            <tr>
+              <td colspan="6" style="text-align:center; padding:30px; color:var(--text-secondary);">
+                <i class="fa-solid fa-circle-notch fa-spin"></i> Loading user accounts...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Audit Trail Card -->
+    <div class="card-table" style="margin-top:24px;">
+      <div class="table-header-bar">
+        <div>
+          <h2 style="font-size:1.1rem; font-weight:700;"><i class="fa-solid fa-clock-rotate-left" style="color:var(--accent-orange); margin-right:8px;"></i> Security & Compliance Audit Trail</h2>
+          <p style="font-size:0.8rem; color:var(--text-secondary); margin:2px 0 0 0;">Immutable chronological ledger of all user creation, asset assignment, and administrative events</p>
+        </div>
+        <button class="btn btn-secondary" onclick="loadAuditLogs()"><i class="fa-solid fa-rotate-right"></i> Refresh</button>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Actor</th>
+              <th>Action</th>
+              <th>Target Entity</th>
+              <th>Target ID</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody id="auditLogsTableBody">
+            <tr>
+              <td colspan="6" style="text-align:center; padding:20px; color:var(--text-secondary);">
+                <i class="fa-solid fa-circle-notch fa-spin"></i> Loading audit logs...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- Create User Modal -->
+  <div class="modal-backdrop" id="modalCreateUser">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 style="font-size:1.15rem; font-weight:700;"><i class="fa-solid fa-user-plus" style="color:var(--accent-cyan); margin-right:8px;"></i> Create New User Account</h3>
+        <button class="btn btn-secondary" style="padding:4px 10px; border-radius:50%;" onclick="closeModal('modalCreateUser')">&times;</button>
+      </div>
+
+      <form id="formCreateUser">
+        <div class="modal-body">
+          <div id="modalAlert" style="display:none; background:rgba(255,82,82,0.15); border:1px solid var(--accent-red); color:var(--accent-red); padding:8px 12px; border-radius:6px; font-size:0.85rem; margin-bottom:14px;"></div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+            <div class="form-group">
+              <label>Full Name *</label>
+              <input type="text" id="inputNewFullName" class="form-control" placeholder="e.g. Priya Sharma" required>
+            </div>
+            <div class="form-group">
+              <label>Employee Code *</label>
+              <input type="text" id="inputNewEmpCode" class="form-control" placeholder="e.g. EMP-105" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Email Address *</label>
+            <input type="email" id="inputNewEmail" class="form-control" placeholder="priya.sharma@geotrack.com" required>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+            <div class="form-group">
+              <label>Role *</label>
+              <select id="selectNewRole" class="form-control" required onchange="toggleAgentFields()">
+                <option value="FIELD_AGENT">Field Agent (Mobile)</option>
+                <option value="BRANCH_MANAGER">Branch Manager (Portal)</option>
+                <option value="SUPER_ADMIN">Super Administrator</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Password (Argon2id) *</label>
+              <input type="password" id="inputNewPassword" class="form-control" placeholder="Min. 8 characters" required>
+            </div>
+          </div>
+
+          <!-- Vehicle Specs (Only for Field Agent) -->
+          <div id="agentVehicleSection" style="margin-top:10px; padding:12px; background:var(--bg-dark); border-radius:8px; border:1px solid var(--border-color);">
+            <div style="font-size:0.8rem; font-weight:700; color:var(--accent-green); text-transform:uppercase; margin-bottom:10px;">
+              <i class="fa-solid fa-motorcycle"></i> Assigned Vehicle Specs
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+              <div class="form-group" style="margin-bottom:0;">
+                <label>Plate Number</label>
+                <input type="text" id="inputNewVehicleReg" class="form-control" placeholder="MH-02-CB-1234">
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label>Mileage (km/L)</label>
+                <input type="number" step="0.1" id="inputNewEfficiency" class="form-control" value="35.0">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modalCreateUser')">Cancel</button>
+          <button type="submit" id="btnSubmitCreateUser" class="btn btn-primary"><i class="fa-solid fa-check"></i> Create Account</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Assign 5-10 Assets Modal -->
+  <div class="modal-backdrop" id="modalAssignAssets">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 style="font-size:1.15rem; font-weight:700;"><i class="fa-solid fa-link" style="color:var(--accent-cyan); margin-right:8px;"></i> Assign Assets to Branch Manager</h3>
+        <button class="btn btn-secondary" style="padding:4px 10px; border-radius:50%;" onclick="closeModal('modalAssignAssets')">&times;</button>
+      </div>
+
+      <form id="formAssignAssets">
+        <div class="modal-body">
+          <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:14px;">
+            Select a Branch Manager and choose the specific <strong>5 to 10 field agents</strong> they are authorized to supervise.
+          </p>
+
+          <div class="form-group">
+            <label>Select Branch Manager *</label>
+            <select id="selectAssignManager" class="form-control" required></select>
+          </div>
+
+          <div class="form-group">
+            <label>Select Field Agents (Max 15) *</label>
+            <div id="agentCheckboxList" style="max-height:200px; overflow-y:auto; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:8px; padding:10px;"></div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modalAssignAssets')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> Save Assignments</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

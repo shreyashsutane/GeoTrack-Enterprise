@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GeoTrack Enterprise - Manager Dashboard</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body style="overflow:hidden;">
+
+  <!-- Navbar -->
+  <header class="navbar">
+    <a href="manager.html" class="nav-brand">
+      <div class="brand-icon"><i class="fa-solid fa-map-location-dot"></i></div>
+      <span>GeoTrack Manager</span>
+    </a>
+
+    <div class="nav-links">
+      <div class="user-badge">
+        <i class="fa-solid fa-user-tie" style="color:var(--accent-cyan);"></i>
+        <span id="navUserName">Branch Manager</span>
+        <span class="role-pill role-manager">Assigned 5–10 Fleet</span>
+      </div>
+      <button class="btn btn-secondary" style="font-size:0.82rem;" onclick="exportCSV()">
+        <i class="fa-solid fa-file-csv" style="color:var(--accent-green);"></i> Export CSV
+      </button>
+      <button class="btn btn-secondary" style="font-size:0.82rem;" onclick="toggleReportsModal()">
+        <i class="fa-solid fa-receipt"></i> Review Claims (<span id="pendingClaimsBadge">0</span>)
+      </button>
+      <button class="btn btn-danger" style="padding:6px 12px; font-size:0.82rem;" onclick="logout()">
+        <i class="fa-solid fa-right-from-bracket"></i> Logout
+      </button>
+    </div>
+  </header>
+
+  <!-- Split View: Sidebar + Map -->
+  <div class="map-view-layout">
+    <!-- Left Sidebar: Assigned 5-10 Assets -->
+    <aside class="map-sidebar">
+      <div style="padding:16px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <h2 style="font-size:1rem; font-weight:700;">My Assigned Fleet</h2>
+          <p style="font-size:0.75rem; color:var(--text-secondary);">Direct team supervisory scope</p>
+        </div>
+        <span class="badge badge-approved" id="fleetCountBadge">0 Active</span>
+      </div>
+
+      <div id="fleetList" style="flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:10px;">
+        <div style="text-align:center; padding:30px; color:var(--text-secondary); font-size:0.85rem;">
+          <i class="fa-solid fa-circle-notch fa-spin"></i> Loading assigned fleet...
+        </div>
+      </div>
+    </aside>
+
+    <!-- Map Canvas Container -->
+    <main class="map-canvas-container">
+      <div id="map"></div>
+    </main>
+  </div>
+
+  <!-- Review Reports Modal -->
+  <div class="modal-backdrop" id="modalReports">
+    <div class="modal-card" style="max-width:900px;">
+      <div class="modal-header">
+        <h3 style="font-size:1.15rem; font-weight:700;"><i class="fa-solid fa-receipt" style="color:var(--accent-cyan); margin-right:8px;"></i> Team Travel & Expense Reimbursement Claims</h3>
+        <button class="btn btn-secondary" style="padding:4px 10px; border-radius:50%;" onclick="toggleReportsModal()">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding:0;">
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Report #</th>
+                <th>Field Agent</th>
+                <th>Date</th>
+                <th>Distance</th>
+                <th>Fuel Cost</th>
+                <th>Total Claim</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="reportsTableBody">
+              <tr>
+                <td colspan="8" style="text-align:center; padding:30px; color:var(--text-secondary);">
+                  <i class="fa-solid fa-circle-notch fa-spin"></i> Fetching reports...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center;">
+        <button class="btn btn-secondary" onclick="exportCSV()"><i class="fa-solid fa-file-csv" style="color:var(--accent-green); margin-right:6px;"></i> Export to CSV</button>
+        <div style="display:flex; gap:10px;">
+          <button class="btn btn-secondary" onclick="loadManagerReports()"><i class="fa-solid fa-rotate-right"></i> Refresh</button>
+          <button class="btn btn-primary" onclick="toggleReportsModal()">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/manager.js"></script>
+</body>
+</html>

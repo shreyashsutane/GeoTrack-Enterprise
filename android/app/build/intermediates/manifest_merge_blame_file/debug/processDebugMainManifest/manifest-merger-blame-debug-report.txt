@@ -1,0 +1,210 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.geotrack.enterprise"
+4    android:versionCode="1"
+5    android:versionName="1.0.0" >
+6
+7    <uses-sdk
+8        android:minSdkVersion="26"
+9        android:targetSdkVersion="35" />
+10
+11    <!-- Location Permissions -->
+12    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+12-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:6:5-79
+12-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:6:22-76
+13    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+13-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:7:5-81
+13-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:7:22-78
+14
+15    <!-- Foreground Service Permissions for Android 9+ and Android 14+ -->
+16    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+16-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:10:5-77
+16-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:10:22-74
+17    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+17-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:11:5-86
+17-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:11:22-83
+18
+19    <!-- Notification Permission for Android 13+ -->
+20    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+20-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:14:5-77
+20-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:14:22-74
+21
+22    <!-- Network & Wakelock -->
+23    <uses-permission android:name="android.permission.INTERNET" />
+23-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:17:5-67
+23-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:17:22-64
+24    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+24-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:18:5-79
+24-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:18:22-76
+25    <uses-permission android:name="android.permission.WAKE_LOCK" />
+25-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:19:5-68
+25-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:19:22-65
+26
+27    <uses-feature
+27-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:21:5-23:35
+28        android:name="android.hardware.location.gps"
+28-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:22:9-53
+29        android:required="true" />
+29-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:23:9-32
+30
+31    <permission
+31-->[androidx.core:core:1.15.0] /Users/shreyashsutane/.gradle/caches/8.12/transforms/19b7b92dcd9096aedfd45688aba0d8f3/transformed/core-1.15.0/AndroidManifest.xml:22:5-24:47
+32        android:name="com.geotrack.enterprise.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+32-->[androidx.core:core:1.15.0] /Users/shreyashsutane/.gradle/caches/8.12/transforms/19b7b92dcd9096aedfd45688aba0d8f3/transformed/core-1.15.0/AndroidManifest.xml:23:9-81
+33        android:protectionLevel="signature" />
+33-->[androidx.core:core:1.15.0] /Users/shreyashsutane/.gradle/caches/8.12/transforms/19b7b92dcd9096aedfd45688aba0d8f3/transformed/core-1.15.0/AndroidManifest.xml:24:9-44
+34
+35    <uses-permission android:name="com.geotrack.enterprise.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+35-->[androidx.core:core:1.15.0] /Users/shreyashsutane/.gradle/caches/8.12/transforms/19b7b92dcd9096aedfd45688aba0d8f3/transformed/core-1.15.0/AndroidManifest.xml:26:5-97
+35-->[androidx.core:core:1.15.0] /Users/shreyashsutane/.gradle/caches/8.12/transforms/19b7b92dcd9096aedfd45688aba0d8f3/transformed/core-1.15.0/AndroidManifest.xml:26:22-94
+36
+37    <application
+37-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:25:5-52:19
+38        android:allowBackup="true"
+38-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:26:9-35
+39        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+39-->[androidx.core:core:1.15.0] /Users/shreyashsutane/.gradle/caches/8.12/transforms/19b7b92dcd9096aedfd45688aba0d8f3/transformed/core-1.15.0/AndroidManifest.xml:28:18-86
+40        android:debuggable="true"
+41        android:extractNativeLibs="false"
+42        android:icon="@android:drawable/ic_menu_mylocation"
+42-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:27:9-60
+43        android:label="@string/app_name"
+43-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:28:9-41
+44        android:roundIcon="@android:drawable/ic_menu_mylocation"
+44-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:29:9-65
+45        android:supportsRtl="true"
+45-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:30:9-35
+46        android:theme="@android:style/Theme.Material.NoActionBar"
+46-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:31:9-66
+47        android:usesCleartextTraffic="true" >
+47-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:32:9-44
+48        <activity
+48-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:35:9-44:20
+49            android:name="com.geotrack.enterprise.MainActivity"
+49-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:36:13-41
+50            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+50-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:38:13-87
+51            android:exported="true"
+51-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:37:13-36
+52            android:theme="@android:style/Theme.Material.NoActionBar" >
+52-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:39:13-70
+53            <intent-filter>
+53-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:40:13-43:29
+54                <action android:name="android.intent.action.MAIN" />
+54-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:41:17-69
+54-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:41:25-66
+55
+56                <category android:name="android.intent.category.LAUNCHER" />
+56-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:42:17-77
+56-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:42:27-74
+57            </intent-filter>
+58        </activity>
+59
+60        <service
+60-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:46:9-50:56
+61            android:name="com.geotrack.enterprise.service.LocationTrackingService"
+61-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:47:13-60
+62            android:enabled="true"
+62-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:48:13-35
+63            android:exported="false"
+63-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:49:13-37
+64            android:foregroundServiceType="location" />
+64-->/Users/shreyashsutane/Desktop/GeoTrack-Enterprise/android/app/src/main/AndroidManifest.xml:50:13-53
+65
+66        <activity
+66-->[com.google.android.gms:play-services-base:18.5.0] /Users/shreyashsutane/.gradle/caches/8.12/transforms/117f32f808f9c657c74097af93f543c7/transformed/play-services-base-18.5.0/AndroidManifest.xml:5:9-173
+67            android:name="com.google.android.gms.common.api.GoogleApiActivity"
+67-->[com.google.android.gms:play-services-base:18.5.0] /Users/shreyashsutane/.gradle/caches/8.12/transforms/117f32f808f9c657c74097af93f543c7/transformed/play-services-base-18.5.0/AndroidManifest.xml:5:19-85
+68            android:exported="false"
+68-->[com.google.android.gms:play-services-base:18.5.0] /Users/shreyashsutane/.gradle/caches/8.12/transforms/117f32f808f9c657c74097af93f543c7/transformed/play-services-base-18.5.0/AndroidManifest.xml:5:146-170
+69            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+69-->[com.google.android.gms:play-services-base:18.5.0] /Users/shreyashsutane/.gradle/caches/8.12/transforms/117f32f808f9c657c74097af93f543c7/transformed/play-services-base-18.5.0/AndroidManifest.xml:5:86-145
+70
+71        <meta-data
+71-->[com.google.android.gms:play-services-basement:18.4.0] /Users/shreyashsutane/.gradle/caches/8.12/transforms/b799bfefa2f950db69e60a8838309bc5/transformed/play-services-basement-18.4.0/AndroidManifest.xml:6:9-122
+72            android:name="com.google.android.gms.version"
+72-->[com.google.android.gms:play-services-basement:18.4.0] /Users/shreyashsutane/.gradle/caches/8.12/transforms/b799bfefa2f950db69e60a8838309bc5/transformed/play-services-basement-18.4.0/AndroidManifest.xml:6:20-65
+73            android:value="@integer/google_play_services_version" />
+73-->[com.google.android.gms:play-services-basement:18.4.0] /Users/shreyashsutane/.gradle/caches/8.12/transforms/b799bfefa2f950db69e60a8838309bc5/transformed/play-services-basement-18.4.0/AndroidManifest.xml:6:66-119
+74
+75        <activity
+75-->[androidx.compose.ui:ui-tooling-android:1.7.6] /Users/shreyashsutane/.gradle/caches/8.12/transforms/3722869a896af83aefdc51d3107ced0b/transformed/ui-tooling-release/AndroidManifest.xml:23:9-25:39
+76            android:name="androidx.compose.ui.tooling.PreviewActivity"
+76-->[androidx.compose.ui:ui-tooling-android:1.7.6] /Users/shreyashsutane/.gradle/caches/8.12/transforms/3722869a896af83aefdc51d3107ced0b/transformed/ui-tooling-release/AndroidManifest.xml:24:13-71
+77            android:exported="true" />
+77-->[androidx.compose.ui:ui-tooling-android:1.7.6] /Users/shreyashsutane/.gradle/caches/8.12/transforms/3722869a896af83aefdc51d3107ced0b/transformed/ui-tooling-release/AndroidManifest.xml:25:13-36
+78        <activity
+78-->[androidx.compose.ui:ui-test-manifest:1.7.6] /Users/shreyashsutane/.gradle/caches/8.12/transforms/63348c28a855040bc05278978f199ece/transformed/ui-test-manifest-1.7.6/AndroidManifest.xml:23:9-25:39
+79            android:name="androidx.activity.ComponentActivity"
+79-->[androidx.compose.ui:ui-test-manifest:1.7.6] /Users/shreyashsutane/.gradle/caches/8.12/transforms/63348c28a855040bc05278978f199ece/transformed/ui-test-manifest-1.7.6/AndroidManifest.xml:24:13-63
+80            android:exported="true" />
+80-->[androidx.compose.ui:ui-test-manifest:1.7.6] /Users/shreyashsutane/.gradle/caches/8.12/transforms/63348c28a855040bc05278978f199ece/transformed/ui-test-manifest-1.7.6/AndroidManifest.xml:25:13-36
+81
+82        <provider
+82-->[androidx.emoji2:emoji2:1.3.0] /Users/shreyashsutane/.gradle/caches/8.12/transforms/6fde0297056c904a88ca07e08682d920/transformed/emoji2-1.3.0/AndroidManifest.xml:24:9-32:20
+83            android:name="androidx.startup.InitializationProvider"
+83-->[androidx.emoji2:emoji2:1.3.0] /Users/shreyashsutane/.gradle/caches/8.12/transforms/6fde0297056c904a88ca07e08682d920/transformed/emoji2-1.3.0/AndroidManifest.xml:25:13-67
+84            android:authorities="com.geotrack.enterprise.androidx-startup"
+84-->[androidx.emoji2:emoji2:1.3.0] /Users/shreyashsutane/.gradle/caches/8.12/transforms/6fde0297056c904a88ca07e08682d920/transformed/emoji2-1.3.0/AndroidManifest.xml:26:13-68
+85            android:exported="false" >
+85-->[androidx.emoji2:emoji2:1.3.0] /Users/shreyashsutane/.gradle/caches/8.12/transforms/6fde0297056c904a88ca07e08682d920/transformed/emoji2-1.3.0/AndroidManifest.xml:27:13-37
+86            <meta-data
+86-->[androidx.emoji2:emoji2:1.3.0] /Users/shreyashsutane/.gradle/caches/8.12/transforms/6fde0297056c904a88ca07e08682d920/transformed/emoji2-1.3.0/AndroidManifest.xml:29:13-31:52
+87                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+87-->[androidx.emoji2:emoji2:1.3.0] /Users/shreyashsutane/.gradle/caches/8.12/transforms/6fde0297056c904a88ca07e08682d920/transformed/emoji2-1.3.0/AndroidManifest.xml:30:17-75
+88                android:value="androidx.startup" />
+88-->[androidx.emoji2:emoji2:1.3.0] /Users/shreyashsutane/.gradle/caches/8.12/transforms/6fde0297056c904a88ca07e08682d920/transformed/emoji2-1.3.0/AndroidManifest.xml:31:17-49
+89            <meta-data
+89-->[androidx.lifecycle:lifecycle-process:2.8.7] /Users/shreyashsutane/.gradle/caches/8.12/transforms/36b76dcd2536c9511ed7d1e59d272cdf/transformed/lifecycle-process-2.8.7/AndroidManifest.xml:29:13-31:52
+90                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+90-->[androidx.lifecycle:lifecycle-process:2.8.7] /Users/shreyashsutane/.gradle/caches/8.12/transforms/36b76dcd2536c9511ed7d1e59d272cdf/transformed/lifecycle-process-2.8.7/AndroidManifest.xml:30:17-78
+91                android:value="androidx.startup" />
+91-->[androidx.lifecycle:lifecycle-process:2.8.7] /Users/shreyashsutane/.gradle/caches/8.12/transforms/36b76dcd2536c9511ed7d1e59d272cdf/transformed/lifecycle-process-2.8.7/AndroidManifest.xml:31:17-49
+92            <meta-data
+92-->[androidx.profileinstaller:profileinstaller:1.3.1] /Users/shreyashsutane/.gradle/caches/8.12/transforms/ef75dc81f65f9b51e196191a1cacd78b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:29:13-31:52
+93                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+93-->[androidx.profileinstaller:profileinstaller:1.3.1] /Users/shreyashsutane/.gradle/caches/8.12/transforms/ef75dc81f65f9b51e196191a1cacd78b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:30:17-85
+94                android:value="androidx.startup" />
+94-->[androidx.profileinstaller:profileinstaller:1.3.1] /Users/shreyashsutane/.gradle/caches/8.12/transforms/ef75dc81f65f9b51e196191a1cacd78b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:31:17-49
+95        </provider>
+96
+97        <receiver
+97-->[androidx.profileinstaller:profileinstaller:1.3.1] /Users/shreyashsutane/.gradle/caches/8.12/transforms/ef75dc81f65f9b51e196191a1cacd78b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:34:9-52:20
+98            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+98-->[androidx.profileinstaller:profileinstaller:1.3.1] /Users/shreyashsutane/.gradle/caches/8.12/transforms/ef75dc81f65f9b51e196191a1cacd78b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:35:13-76
+99            android:directBootAware="false"
+99-->[androidx.profileinstaller:profileinstaller:1.3.1] /Users/shreyashsutane/.gradle/caches/8.12/transforms/ef75dc81f65f9b51e196191a1cacd78b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:36:13-44
+100            android:enabled="true"
+100-->[androidx.profileinstaller:profileinstaller:1.3.1] /Users/shreyashsutane/.gradle/caches/8.12/transforms/ef75dc81f65f9b51e196191a1cacd78b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:37:13-35
+101            android:exported="true"
+101-->[androidx.profileinstaller:profileinstaller:1.3.1] /Users/shreyashsutane/.gradle/caches/8.12/transforms/ef75dc81f65f9b51e196191a1cacd78b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:38:13-36
+102            android:permission="android.permission.DUMP" >
+102-->[androidx.profileinstaller:profileinstaller:1.3.1] /Users/shreyashsutane/.gradle/caches/8.12/transforms/ef75dc81f65f9b51e196191a1cacd78b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:39:13-57
+103            <intent-filter>
+103-->[androidx.profileinstaller:profileinstaller:1.3.1] /Users/shreyashsutane/.gradle/caches/8.12/transforms/ef75dc81f65f9b51e196191a1cacd78b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:40:13-42:29
+104                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+104-->[androidx.profileinstaller:profileinstaller:1.3.1] /Users/shreyashsutane/.gradle/caches/8.12/transforms/ef75dc81f65f9b51e196191a1cacd78b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:41:17-91
+104-->[androidx.profileinstaller:profileinstaller:1.3.1] /Users/shreyashsutane/.gradle/caches/8.12/transforms/ef75dc81f65f9b51e196191a1cacd78b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:41:25-88
+105            </intent-filter>
+106            <intent-filter>
+106-->[androidx.profileinstaller:profileinstaller:1.3.1] /Users/shreyashsutane/.gradle/caches/8.12/transforms/ef75dc81f65f9b51e196191a1cacd78b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:43:13-45:29
+107                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+107-->[androidx.profileinstaller:profileinstaller:1.3.1] /Users/shreyashsutane/.gradle/caches/8.12/transforms/ef75dc81f65f9b51e196191a1cacd78b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:44:17-85
+107-->[androidx.profileinstaller:profileinstaller:1.3.1] /Users/shreyashsutane/.gradle/caches/8.12/transforms/ef75dc81f65f9b51e196191a1cacd78b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:44:25-82
+108            </intent-filter>
+109            <intent-filter>
+109-->[androidx.profileinstaller:profileinstaller:1.3.1] /Users/shreyashsutane/.gradle/caches/8.12/transforms/ef75dc81f65f9b51e196191a1cacd78b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:46:13-48:29
+110                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+110-->[androidx.profileinstaller:profileinstaller:1.3.1] /Users/shreyashsutane/.gradle/caches/8.12/transforms/ef75dc81f65f9b51e196191a1cacd78b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:47:17-88
+110-->[androidx.profileinstaller:profileinstaller:1.3.1] /Users/shreyashsutane/.gradle/caches/8.12/transforms/ef75dc81f65f9b51e196191a1cacd78b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:47:25-85
+111            </intent-filter>
+112            <intent-filter>
+112-->[androidx.profileinstaller:profileinstaller:1.3.1] /Users/shreyashsutane/.gradle/caches/8.12/transforms/ef75dc81f65f9b51e196191a1cacd78b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:49:13-51:29
+113                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+113-->[androidx.profileinstaller:profileinstaller:1.3.1] /Users/shreyashsutane/.gradle/caches/8.12/transforms/ef75dc81f65f9b51e196191a1cacd78b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:50:17-95
+113-->[androidx.profileinstaller:profileinstaller:1.3.1] /Users/shreyashsutane/.gradle/caches/8.12/transforms/ef75dc81f65f9b51e196191a1cacd78b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:50:25-92
+114            </intent-filter>
+115        </receiver>
+116    </application>
+117
+118</manifest>

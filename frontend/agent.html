@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GeoTrack Enterprise - Field Agent Portal</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+
+  <!-- Navbar -->
+  <header class="navbar">
+    <a href="agent.html" class="nav-brand">
+      <div class="brand-icon"><i class="fa-solid fa-motorcycle"></i></div>
+      <span>GeoTrack Field Agent</span>
+    </a>
+
+    <div class="nav-links">
+      <div class="user-badge">
+        <i class="fa-solid fa-user-ninja" style="color:var(--accent-green);"></i>
+        <span id="navUserName">Field Agent</span>
+        <span class="role-pill role-agent">Mobile Duty</span>
+      </div>
+      <button class="btn btn-danger" style="padding:6px 12px; font-size:0.82rem;" onclick="logout()">
+        <i class="fa-solid fa-right-from-bracket"></i> Logout
+      </button>
+    </div>
+  </header>
+
+  <main class="container" style="max-width:1000px;">
+    <!-- Android App Download Card -->
+    <div style="background:linear-gradient(135deg, rgba(0, 229, 255, 0.1), rgba(0, 230, 118, 0.05)); border:1px solid var(--accent-cyan); border-radius:14px; padding:20px; display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; flex-wrap:wrap; gap:16px;">
+      <div>
+        <h3 style="font-size:1.15rem; font-weight:700; color:var(--text-main);"><i class="fa-brands fa-android" style="color:var(--accent-green); margin-right:8px;"></i> GeoTrack Android Mobile App Ready</h3>
+        <p style="color:var(--text-secondary); font-size:0.85rem;">Install the official Android background tracking APK on your smartphone for automated Kalman GPS telematics.</p>
+      </div>
+      <a href="GeoTrack-Enterprise.apk" download class="btn btn-primary">
+        <i class="fa-solid fa-download"></i> Download Android APK (17 MB)
+      </a>
+    </div>
+
+    <!-- Submit Report Section -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:24px;">
+      <div class="card-table" style="padding:24px; margin-bottom:0;">
+        <h3 style="font-size:1.1rem; font-weight:700; margin-bottom:16px;"><i class="fa-solid fa-receipt icon-cyan"></i> File Travel & Expense Claim</h3>
+
+        <form id="agentWebReportForm">
+          <div class="form-group">
+            <label>Trip Date</label>
+            <input type="date" id="webReportDate" class="form-control" required>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div class="form-group">
+              <label>Distance Logged (km) *</label>
+              <input type="number" step="0.1" id="webDistance" class="form-control" value="45.5" required oninput="calculateClaim()">
+            </div>
+            <div class="form-group">
+              <label>Vehicle Mileage (km/L)</label>
+              <input type="number" step="0.1" id="webEfficiency" class="form-control" value="35.0" required oninput="calculateClaim()">
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div class="form-group">
+              <label>Toll Fees (₹)</label>
+              <input type="number" step="1" id="webToll" class="form-control" value="0" oninput="calculateClaim()">
+            </div>
+            <div class="form-group">
+              <label>Parking Fees (₹)</label>
+              <input type="number" step="1" id="webParking" class="form-control" value="0" oninput="calculateClaim()">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Purpose / Client Notes</label>
+            <input type="text" id="webNotes" class="form-control" placeholder="e.g. Client delivery to Andheri West">
+          </div>
+
+          <div style="background:var(--bg-dark); border:1px solid var(--border-color); border-radius:8px; padding:12px; margin-bottom:16px;">
+            <div style="display:flex; justify-content:space-between; font-size:0.85rem; color:var(--text-secondary); margin-bottom:4px;">
+              <span>Fuel Rate Applied:</span><span>₹ 105.00 / L</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:0.85rem; color:var(--text-secondary); margin-bottom:4px;">
+              <span>Fuel Cost:</span><span id="webFuelCost">₹ 136.50</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:1.1rem; font-weight:700; color:var(--accent-green); margin-top:8px; border-top:1px solid var(--border-color); padding-top:6px;">
+              <span>Total Claim Amount:</span><span id="webTotalClaim">₹ 136.50</span>
+            </div>
+          </div>
+
+          <button type="submit" id="btnSubmitWebReport" class="btn btn-primary" style="width:100%; justify-content:center;">
+            <i class="fa-solid fa-paper-plane"></i> Submit to Manager
+          </button>
+        </form>
+      </div>
+
+      <!-- Live Shift Status Card -->
+      <div class="card-table" style="padding:24px; margin-bottom:0; display:flex; flex-direction:column; justify-content:space-between;">
+        <div>
+          <h3 style="font-size:1.1rem; font-weight:700; margin-bottom:12px;"><i class="fa-solid fa-shield-halved" style="color:var(--accent-green);"></i> Shift Telematics Guidelines</h3>
+          <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:14px;">
+            1. All daily travel claims are mathematically audited against GPS Kalman telemetry timestamps.
+          </p>
+          <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:14px;">
+            2. Claims are instantly forwarded to your assigned Branch Manager's review dashboard.
+          </p>
+          <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:14px;">
+            3. Once approved by management, reimbursements are scheduled for monthly payroll disbursement.
+          </p>
+        </div>
+
+        <div style="background:var(--bg-surface-elevated); padding:16px; border-radius:10px; border:1px solid var(--border-color);">
+          <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Account Standing</div>
+          <div style="font-size:1.2rem; font-weight:700; color:var(--accent-cyan); margin-top:4px;"><i class="fa-solid fa-circle-check"></i> Standard Field Duty (Active)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- My Submitted Reports History -->
+    <div class="card-table">
+      <div class="table-header-bar">
+        <h3 style="font-size:1.05rem; font-weight:700;"><i class="fa-solid fa-clock-rotate-left" style="color:var(--accent-cyan); margin-right:8px;"></i> My Submitted Claims</h3>
+        <button class="btn btn-secondary" style="font-size:0.8rem;" onclick="loadMyReports()"><i class="fa-solid fa-rotate-right"></i> Refresh</button>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Report #</th>
+              <th>Date</th>
+              <th>Distance</th>
+              <th>Fuel Cost</th>
+              <th>Total Claim</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="agentReportsBody">
+            <tr>
+              <td colspan="6" style="text-align:center; padding:30px; color:var(--text-secondary);">
+                <i class="fa-solid fa-circle-notch fa-spin"></i> Loading reports...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/api.js"></script>
+  <script>
+    const fuelRate = 105.0;
+
+    function logout() {
+      api.clearSession();
+      window.location.href = 'index.html';
+    }
+
+    function calculateClaim() {
+      const dist = parseFloat(document.getElementById('webDistance').value) || 0;
+      const eff = parseFloat(document.getElementById('webEfficiency').value) || 35.0;
+      const toll = parseFloat(document.getElementById('webToll').value) || 0;
+      const parking = parseFloat(document.getElementById('webParking').value) || 0;
+
+      const liters = Math.round((dist / eff) * 100) / 100;
+      const fuelCost = Math.round(liters * fuelRate * 100) / 100;
+      const total = Math.round((fuelCost + toll + parking) * 100) / 100;
+
+      document.getElementById('webFuelCost').textContent = `₹ ${fuelCost.toFixed(2)}`;
+      document.getElementById('webTotalClaim').textContent = `₹ ${total.toFixed(2)}`;
+      return { dist, eff, liters, fuelCost, toll, parking, total };
+    }
+
+    async function loadMyReports() {
+      const tbody = document.getElementById('agentReportsBody');
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-secondary);"><i class="fa-solid fa-circle-notch fa-spin"></i> Fetching claims...</td></tr>`;
+
+      try {
+        const reports = await api.listMyReports();
+        if (reports.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-secondary);">You have not submitted any expense reports yet.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = reports.map(r => {
+          let badge = '<span class="badge badge-submitted">IN REVIEW</span>';
+          if (r.status === 'APPROVED') badge = '<span class="badge badge-approved">APPROVED</span>';
+          else if (r.status === 'REJECTED') badge = `<span class="badge badge-rejected" title="${r.rejection_reason || ''}">REJECTED</span>`;
+          else if (r.status === 'PAID') badge = '<span class="badge badge-paid">PAID</span>';
+
+          return `
+            <tr>
+              <td style="font-family:monospace; font-weight:700; color:var(--accent-cyan);">${r.report_number}</td>
+              <td style="color:var(--text-secondary);">${r.report_date}</td>
+              <td>${r.total_distance_km} km</td>
+              <td>₹ ${r.total_fuel_amount.toFixed(2)}</td>
+              <td style="font-weight:700; color:var(--accent-green);">₹ ${r.total_claim_amount.toFixed(2)}</td>
+              <td>${badge}</td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--accent-red); padding:20px;">Failed to load reports: ${err.message}</td></tr>`;
+      }
+    }
+
+    document.getElementById('agentWebReportForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const calc = calculateClaim();
+      const date = document.getElementById('webReportDate').value;
+      const notes = document.getElementById('webNotes').value;
+      const btn = document.getElementById('btnSubmitWebReport');
+
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Submitting...';
+
+      try {
+        await api.submitReport({
+          report_date: date,
+          start_time: `${date}T09:00:00Z`,
+          end_time: `${date}T18:00:00Z`,
+          total_distance_km: calc.dist,
+          total_moving_time_mins: 120,
+          total_idle_time_mins: 30,
+          calculated_fuel_liters: calc.liters,
+          fuel_rate_applied: fuelRate,
+          total_fuel_amount: calc.fuelCost,
+          extra_toll_amount: calc.toll,
+          extra_parking_amount: calc.parking,
+          total_claim_amount: calc.total,
+          agent_notes: notes
+        });
+
+        alert('Report submitted successfully! Forwarded to your Branch Manager.');
+        await loadMyReports();
+      } catch (err) {
+        alert('Submission failed: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Submit to Manager';
+      }
+    });
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      document.getElementById('webReportDate').value = new Date().toISOString().split('T')[0];
+      calculateClaim();
+
+      try {
+        const user = await api.getCurrentUser();
+        if (user) document.getElementById('navUserName').textContent = user.full_name;
+        await loadMyReports();
+      } catch (e) {
+        window.location.href = 'index.html';
+      }
+    });
+  </script>
+</body>
+</html>
