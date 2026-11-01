@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GeoTrack Enterprise - Secure Login</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body style="display:flex; align-items:center; justify-content:center; min-height:100vh; padding:20px;">
+
+  <div style="width:100%; max-width:440px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:16px; padding:32px; box-shadow:0 20px 40px rgba(0,0,0,0.6);">
+    <div style="text-align:center; margin-bottom:28px;">
+      <div style="width:56px; height:56px; background:linear-gradient(135deg, var(--accent-cyan), #0091ea); border-radius:14px; display:inline-flex; align-items:center; justify-content:center; color:var(--bg-dark); font-size:1.6rem; margin-bottom:12px;">
+        <i class="fa-solid fa-satellite-dish"></i>
+      </div>
+      <h1 style="font-size:1.6rem; font-weight:700;">GeoTrack Enterprise</h1>
+      <p style="color:var(--text-secondary); font-size:0.88rem;">Secure Telematics & Fleet Platform</p>
+    </div>
+
+    <div id="errorAlert" style="display:none; background:rgba(255,82,82,0.15); border:1px solid var(--accent-red); color:var(--accent-red); padding:10px 14px; border-radius:8px; font-size:0.85rem; margin-bottom:18px;"></div>
+
+    <form id="loginForm">
+      <div class="form-group">
+        <label for="inputEmailOrCode"><i class="fa-solid fa-id-badge"></i> Employee Code or Email</label>
+        <input type="text" id="inputEmailOrCode" class="form-control" placeholder="e.g. ADM-001 or admin@geotrack.com" required autocomplete="username">
+      </div>
+
+      <div class="form-group">
+        <label for="inputPassword"><i class="fa-solid fa-lock"></i> Password (Argon2id)</label>
+        <input type="password" id="inputPassword" class="form-control" placeholder="••••••••••••" required autocomplete="current-password">
+      </div>
+
+      <button type="submit" id="btnLogin" class="btn btn-primary" style="width:100%; justify-content:center; padding:12px; font-size:1rem; margin-top:8px;">
+        <i class="fa-solid fa-right-to-bracket"></i> Sign In to Portal
+      </button>
+    </form>
+
+    <div style="margin-top:24px; padding-top:20px; border-top:1px solid var(--border-color);">
+      <p style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:10px;">Quick Test Logins (Argon2id):</p>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+        <button type="button" class="btn btn-secondary" style="font-size:0.75rem; padding:6px 8px; justify-content:center;" onclick="fillLogin('ADM-001', 'AdminPass123!')">
+          <i class="fa-solid fa-shield-halved" style="color:var(--accent-purple);"></i> Admin
+        </button>
+        <button type="button" class="btn btn-secondary" style="font-size:0.75rem; padding:6px 8px; justify-content:center;" onclick="fillLogin('MGR-042', 'ManagerPass123!')">
+          <i class="fa-solid fa-user-tie" style="color:var(--accent-cyan);"></i> Manager
+        </button>
+        <button type="button" class="btn btn-secondary" style="font-size:0.75rem; padding:6px 8px; justify-content:center;" onclick="fillLogin('EMP-104', 'AgentPass123!')">
+          <i class="fa-solid fa-motorcycle" style="color:var(--accent-green);"></i> Agent
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script>
+    function fillLogin(code, pass) {
+      document.getElementById('inputEmailOrCode').value = code;
+      document.getElementById('inputPassword').value = pass;
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const code = document.getElementById('inputEmailOrCode').value.trim();
+      const pass = document.getElementById('inputPassword').value;
+      const btn = document.getElementById('btnLogin');
+      const errAlert = document.getElementById('errorAlert');
+
+      errAlert.style.display = 'none';
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Authenticating with Argon2id...';
+
+      try {
+        const resp = await api.login(code, pass);
+        if (resp && resp.user) {
+          const role = resp.user.role_name;
+          if (role === 'SUPER_ADMIN') {
+            window.location.href = 'admin.html';
+          } else if (role === 'BRANCH_MANAGER') {
+            window.location.href = 'manager.html';
+          } else {
+            window.location.href = 'agent.html';
+          }
+        }
+      } catch (err) {
+        errAlert.textContent = err.message || 'Login failed. Please check credentials.';
+        errAlert.style.display = 'block';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Sign In to Portal';
+      }
+    });
+
+    // Check existing valid session
+    window.addEventListener('DOMContentLoaded', async () => {
+      if (api.getToken()) {
+        try {
+          const user = await api.getCurrentUser();
+          if (user && user.role_name === 'SUPER_ADMIN') window.location.href = 'admin.html';
+          else if (user && user.role_name === 'BRANCH_MANAGER') window.location.href = 'manager.html';
+          else if (user) window.location.href = 'agent.html';
+        } catch (e) {
+          api.clearSession();
+        }
+      }
+    });
+  </script>
+</body>
+</html>
