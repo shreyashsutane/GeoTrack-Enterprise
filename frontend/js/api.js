@@ -79,17 +79,20 @@ const api = {
 
   async getPublicConfig() {
     try {
-      const res = await this.request('/api/v1/config');
+      const url = `${API_BASE_URL}/api/v1/config`;
+      const res = await fetch(url).then(r => r.json()).catch(() => null);
       if (res && res.google_maps_key) {
         localStorage.setItem('geotrack_google_maps_key', res.google_maps_key);
+        return res;
       }
-      return res;
-    } catch (e) {
-      return {
-        google_maps_configured: !!localStorage.getItem('geotrack_google_maps_key'),
-        google_maps_key: localStorage.getItem('geotrack_google_maps_key') || ''
-      };
-    }
+    } catch (e) {}
+
+    const cachedKey = localStorage.getItem('geotrack_google_maps_key') || '';
+    return {
+      google_maps_configured: !!cachedKey,
+      google_maps_key: cachedKey,
+      version: '1.0.0'
+    };
   },
 
   async request(endpoint, options = {}) {
@@ -242,6 +245,14 @@ const api = {
       };
       DEMO_STORE.reports.unshift(newRep);
       return newRep;
+    }
+
+    if (endpoint === '/api/v1/config') {
+      return {
+        google_maps_configured: true,
+        google_maps_key: localStorage.getItem('geotrack_google_maps_key') || '',
+        version: '1.0.0'
+      };
     }
 
     return null;
