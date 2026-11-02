@@ -1,12 +1,16 @@
 /**
  * GeoTrack Enterprise - Branch Manager Dashboard Controller
- * Enforces 5-10 asset supervisory boundary and live telemetry tracking
+ * Enforces 5-10 asset supervisory boundary and authentic Google Maps telemetry tracking
  */
 
 let assignedAgents = [];
 let managerReports = [];
-let map = null;
-let agentMarkers = {};
+let isGoogleMapsActive = false;
+let googleMap = null;
+let googleMarkers = {};
+let activeInfoWindow = null;
+let leafletMap = null;
+let leafletMarkers = {};
 
 function logout() {
   api.clearSession();
@@ -14,113 +18,222 @@ function logout() {
 }
 window.logout = logout;
 
-function initMap(apiKey = '') {
-  if (map || !window.L) return;
+// Google Maps Dark Theme styling (identical to LocationTracker)
+const darkThemeStyles = [
+  { elementType: "geometry", stylers: [{ color: "#1d2c4d" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#8ec3b9" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#1a3646" }] },
+  { featureType: "administrative.country", elementType: "geometry.stroke", stylers: [{ color: "#4b6878" }] },
+  { featureType: "administrative.province", elementType: "geometry.stroke", stylers: [{ color: "#4b6878" }] },
+  { featureType: "landscape.man_made", elementType: "geometry.stroke", stylers: [{ color: "#334e87" }] },
+  { featureType: "landscape.natural", elementType: "geometry", stylers: [{ color: "#023e58" }] },
+  { featureType: "poi", elementType: "geometry", stylers: [{ color: "#283d6a" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#304a7d" }] },
+  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#98a5be" }] },
+  { featureType: "road", elementType: "labels.text.stroke", stylers: [{ color: "#1d2c4d" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#2c6675" }] },
+  { featureType: "transit", elementType: "labels.text.fill", stylers: [{ color: "#98a5be" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#0e1626" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#4e6d99" }] }
+];
 
+async function loadGoogleMapsScript(apiKey) {
+  if (window.google && window.google.maps) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const existing = document.getElementById('google-maps-sdk');
+    if (existing) existing.remove();
+    const script = document.createElement('script');
+    script.id = 'google-maps-sdk';
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=geometry`;
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Failed to load Google Maps SDK'));
+    document.head.appendChild(script);
+  });
+}
+
+async function initMap(apiKey = '') {
   const googleKey = apiKey || localStorage.getItem('geotrack_google_maps_key') || '';
 
-  // 1. Google Maps Streets Layer (High-Performance Vector Tile Servers)
-  const googleStreets = googleKey ? L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&key=' + encodeURIComponent(googleKey), {
-    attribution: '&copy; Google Maps',
-    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-    maxZoom: 20
-  }) : null;
+  if (googleKey) {
+    try {
+      await loadGoogleMapsScript(googleKey);
+      const container = document.getElementById('map');
+      if (container && window.google && window.google.maps) {
+        googleMap = new google.maps.Map(container, {
+          center: { lat: 18.5204, lng: 73.8567 },
+          zoom: 13,
+          styles: darkThemeStyles,
+          backgroundColor: '#0b0f17',
+          gestureHandling: 'greedy',
+          disableDefaultUI: false,
+          zoomControl: true,
+          mapTypeControl: true,
+          scaleControl: true,
+          streetViewControl: false,
+          fullscreenControl: true
+        });
+        isGoogleMapsActive = true;
+        updateMapMarkers();
+        return;
+      }
+    } catch (e) {
+      console.warn('[Map] Google Maps JavaScript API load failed; falling back to clean tiles:', e);
+    }
+  }
 
-  // 2. Google Maps Satellite / Hybrid Layer
-  const googleSatellite = googleKey ? L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&key=' + encodeURIComponent(googleKey), {
-    attribution: '&copy; Google Maps Satellite',
-    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-    maxZoom: 20
-  }) : null;
+  initLeafletFallback();
+}
 
-  // 3. ESRI Dark Gray Canvas (Clean Dark Fleet Baseline)
+function initLeafletFallback() {
+  if (leafletMap || !window.L) return;
+
   const esriDark = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
-    attribution: '&copy; Esri &copy; OpenStreetMap contributors',
+    attribution: '&copy; Esri',
     maxZoom: 16
   });
 
-  // 4. OpenStreetMap Standard
   const osmLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors',
+    attribution: '&copy; OpenStreetMap',
     maxZoom: 19
   });
 
-  // Default active layer: Google Maps Streets (if key configured) or ESRI Dark
-  const defaultLayer = googleStreets || esriDark;
-
-  // Pune / Mumbai metropolitan hub default coordinates
-  map = L.map('map', { 
+  leafletMap = L.map('map', { 
     zoomControl: false,
-    layers: [defaultLayer]
+    layers: [esriDark]
   }).setView([18.5204, 73.8567], 13);
 
-  L.control.zoom({ position: 'bottomright' }).addTo(map);
-
-  // Map layer controls
-  const baseMaps = {};
-  if (googleStreets) {
-    baseMaps["🗺️ Google Maps Streets (Default)"] = googleStreets;
-    baseMaps["🛰️ Google Maps Satellite"] = googleSatellite;
-  }
-  baseMaps["🌙 Dark Fleet"] = esriDark;
-  baseMaps["🌍 OpenStreetMap"] = osmLayer;
-
-  L.control.layers(baseMaps, null, { position: 'topright' }).addTo(map);
+  L.control.zoom({ position: 'bottomright' }).addTo(leafletMap);
+  L.control.layers({ "🌙 Dark Fleet": esriDark, "🌍 OpenStreetMap": osmLayer }, null, { position: 'topright' }).addTo(leafletMap);
 }
 
 function updateMapMarkers() {
-  if (!map) return;
+  const onlineAgents = (assignedAgents || []).filter(a => a.is_online === true && a.lat != null && a.lng != null);
+  const badge = document.getElementById('fleetCountBadge');
+  if (badge) {
+    badge.textContent = `${onlineAgents.length} Online / ${assignedAgents.length} Total`;
+  }
 
-  Object.values(agentMarkers).forEach(m => map.removeLayer(m.marker));
-  agentMarkers = {};
+  // 1. Google Maps Rendering (Native SDK)
+  if (isGoogleMapsActive && googleMap) {
+    Object.values(googleMarkers).forEach(m => m.marker.setMap(null));
+    googleMarkers = {};
 
-  if (!assignedAgents || assignedAgents.length === 0) return;
+    if (onlineAgents.length === 0) return;
 
-  const bounds = [];
-  const onlineAgents = assignedAgents.filter(a => a.is_online === true && a.lat != null && a.lng != null);
-  document.getElementById('fleetCountBadge').textContent = `${onlineAgents.length} Online / ${assignedAgents.length} Total`;
+    const bounds = new google.maps.LatLngBounds();
 
-  onlineAgents.forEach((agent, i) => {
-    const lat = agent.lat;
-    const lng = agent.lng;
-    bounds.push([lat, lng]);
+    onlineAgents.forEach((agent, i) => {
+      const pos = { lat: agent.lat, lng: agent.lng };
+      bounds.extend(pos);
 
-    const customIcon = L.divIcon({
-      className: 'vehicle-marker',
-      html: `
-        <div style="background:var(--accent-cyan); color:#000; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 0 14px var(--accent-cyan); border:2px solid #fff; cursor:pointer;">
-          <i class="fa-solid fa-motorcycle" style="font-size:14px;"></i>
-        </div>
-      `,
-      iconSize: [34, 34],
-      iconAnchor: [17, 17]
+      const marker = new google.maps.Marker({
+        position: pos,
+        map: googleMap,
+        title: agent.full_name,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 10,
+          fillColor: '#00e5ff',
+          fillOpacity: 1,
+          strokeColor: '#ffffff',
+          strokeWeight: 2
+        }
+      });
+
+      const infoWindow = new google.maps.InfoWindow({
+        content: `
+          <div style="color:#111; font-family:sans-serif; min-width:180px; padding:4px;">
+            <h4 style="margin:0 0 4px 0; font-size:14px; font-weight:700;">${escapeHtml(agent.full_name)}</h4>
+            <p style="margin:0 0 6px 0; font-size:12px; color:#555;">Code: <strong>${escapeHtml(agent.employee_code)}</strong></p>
+            <div style="font-size:11px; color:#222; background:#f4f4f4; padding:6px; border-radius:4px; display:flex; flex-direction:column; gap:3px;">
+              <div>Status: <span style="color:#00a86b; font-weight:700;">● LIVE TRANSMITTING</span></div>
+              <div>Speed: <strong>${(agent.speed_kmh || 0).toFixed(1)} km/h</strong></div>
+              <div>Battery: <strong>${agent.battery_pct != null ? agent.battery_pct + '%' : 'N/A'}</strong></div>
+            </div>
+          </div>
+        `
+      });
+
+      marker.addListener('click', () => {
+        if (activeInfoWindow) activeInfoWindow.close();
+        infoWindow.open(googleMap, marker);
+        activeInfoWindow = infoWindow;
+      });
+
+      googleMarkers[i] = { marker, pos, infoWindow };
     });
 
-    const marker = L.marker([lat, lng], { icon: customIcon }).addTo(map);
-    marker.bindPopup(`
-      <div style="color:#111; font-family:sans-serif; min-width:180px;">
-        <h4 style="margin:0 0 4px 0; font-size:14px; font-weight:700;">${escapeHtml(agent.full_name)}</h4>
-        <p style="margin:0 0 6px 0; font-size:12px; color:#555;">Code: <strong>${escapeHtml(agent.employee_code)}</strong></p>
-        <div style="font-size:11px; color:#222; background:#f4f4f4; padding:6px; border-radius:4px; display:flex; flex-direction:column; gap:3px;">
-          <div>Status: <span style="color:#00a86b; font-weight:700;">● LIVE TRANSMITTING</span></div>
-          <div>Speed: <strong>${(agent.speed_kmh || 0).toFixed(1)} km/h</strong></div>
-          <div>Battery: <strong>${agent.battery_pct != null ? agent.battery_pct + '%' : 'N/A'}</strong></div>
+    if (onlineAgents.length === 1) {
+      googleMap.setCenter({ lat: onlineAgents[0].lat, lng: onlineAgents[0].lng });
+      googleMap.setZoom(15);
+    } else if (onlineAgents.length > 1) {
+      googleMap.fitBounds(bounds);
+    }
+    return;
+  }
+
+  // 2. Leaflet Fallback Rendering
+  if (leafletMap) {
+    Object.values(leafletMarkers).forEach(m => leafletMap.removeLayer(m.marker));
+    leafletMarkers = {};
+
+    if (onlineAgents.length === 0) return;
+
+    const bounds = [];
+    onlineAgents.forEach((agent, i) => {
+      const lat = agent.lat;
+      const lng = agent.lng;
+      bounds.push([lat, lng]);
+
+      const customIcon = L.divIcon({
+        className: 'vehicle-marker',
+        html: `
+          <div style="background:var(--accent-cyan); color:#000; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 0 14px var(--accent-cyan); border:2px solid #fff; cursor:pointer;">
+            <i class="fa-solid fa-motorcycle" style="font-size:14px;"></i>
+          </div>
+        `,
+        iconSize: [34, 34],
+        iconAnchor: [17, 17]
+      });
+
+      const marker = L.marker([lat, lng], { icon: customIcon }).addTo(leafletMap);
+      marker.bindPopup(`
+        <div style="color:#111; font-family:sans-serif; min-width:180px;">
+          <h4 style="margin:0 0 4px 0; font-size:14px; font-weight:700;">${escapeHtml(agent.full_name)}</h4>
+          <p style="margin:0 0 6px 0; font-size:12px; color:#555;">Code: <strong>${escapeHtml(agent.employee_code)}</strong></p>
+          <div style="font-size:11px; color:#222; background:#f4f4f4; padding:6px; border-radius:4px; display:flex; flex-direction:column; gap:3px;">
+            <div>Status: <span style="color:#00a86b; font-weight:700;">● LIVE TRANSMITTING</span></div>
+            <div>Speed: <strong>${(agent.speed_kmh || 0).toFixed(1)} km/h</strong></div>
+            <div>Battery: <strong>${agent.battery_pct != null ? agent.battery_pct + '%' : 'N/A'}</strong></div>
+          </div>
         </div>
-      </div>
-    `);
+      `);
 
-    agentMarkers[i] = { marker, lat, lng };
-  });
+      leafletMarkers[i] = { marker, lat, lng };
+    });
 
-  if (bounds.length > 0) {
-    map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
+    if (bounds.length > 0) {
+      leafletMap.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
+    }
   }
 }
 
 function focusAgent(idx) {
-  const item = agentMarkers[idx];
-  if (item && map) {
-    map.setView([item.lat, item.lng], 16, { animate: true });
+  if (isGoogleMapsActive && googleMap && googleMarkers[idx]) {
+    const item = googleMarkers[idx];
+    googleMap.panTo(item.pos);
+    googleMap.setZoom(16);
+    if (activeInfoWindow) activeInfoWindow.close();
+    item.infoWindow.open(googleMap, item.marker);
+    activeInfoWindow = item.infoWindow;
+    return;
+  }
+
+  if (leafletMap && leafletMarkers[idx]) {
+    const item = leafletMarkers[idx];
+    leafletMap.setView([item.lat, item.lng], 16, { animate: true });
     item.marker.openPopup();
   }
 }
@@ -273,7 +386,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
     document.getElementById('navUserName').textContent = user.full_name;
     const cfg = await api.getPublicConfig();
-    initMap(cfg ? cfg.google_maps_key : '');
+    await initMap(cfg ? cfg.google_maps_key : '');
     await loadAssignedFleet();
     await loadManagerReports();
 
