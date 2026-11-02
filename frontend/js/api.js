@@ -70,8 +70,14 @@ const api = {
   },
 
   async request(endpoint, options = {}) {
-    const url = `${API_BASE_URL}${endpoint}`;
     const token = this.getToken();
+
+    // If session is using offline demo token, fulfill locally via demo store
+    if (token && token.startsWith('demo-jwt-token-')) {
+      return this.demoFallback(endpoint, options);
+    }
+
+    const url = `${API_BASE_URL}${endpoint}`;
 
     const headers = {
       'Content-Type': 'application/json',
@@ -89,6 +95,10 @@ const api = {
       });
 
       if (res.status === 401) {
+        if (endpoint.includes('/auth/login')) {
+          const errData = await res.json().catch(() => null);
+          throw new Error((errData && errData.error) || 'Invalid employee code or password.');
+        }
         this.clearSession();
         if (!window.location.pathname.endsWith('index.html') && !window.location.pathname.endsWith('/')) {
           window.location.href = 'index.html';
@@ -105,8 +115,8 @@ const api = {
 
       return data;
     } catch (err) {
-      // Graceful offline/demo fallback for GitHub Pages when standalone backend is not yet reached
-      if (window.location.hostname.endsWith('github.io') || !API_BASE_URL) {
+      // Graceful offline fallback ONLY when backend is unreachable (e.g. network down)
+      if ((window.location.hostname.endsWith('github.io') || !API_BASE_URL) && err.name === 'TypeError' && err.message.includes('fetch')) {
         return this.demoFallback(endpoint, options);
       }
       console.error(`[API Error] ${endpoint}:`, err);
@@ -226,10 +236,11 @@ const api = {
         return res;
       }
     } catch (err) {
-      if (!window.location.hostname.endsWith('github.io') && API_BASE_URL) throw err;
+      // If we received an explicit error from server or custom URL, propagate it directly
+      if (API_BASE_URL) throw err;
     }
 
-    // Demo Mode Auto-Resolver for GitHub Pages / Offline
+    // Demo Mode Auto-Resolver only when zero backend URL is available
     const code = (emailOrCode || '').toUpperCase().trim();
     let user = null;
     if (code.includes('ADM') || code.includes('ADMIN')) {

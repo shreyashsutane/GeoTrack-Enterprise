@@ -49,6 +49,69 @@ func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *Handler) AuthDiagnostics(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	diag := map[string]interface{}{
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
+		"service":   "geotrack-enterprise-backend",
+	}
+
+	testUsers := []struct {
+		Code string
+		Pass string
+	}{
+		{"ADM-001", "AdminPass123!"},
+		{"MGR-042", "ManagerPass123!"},
+		{"EMP-104", "AgentPass123!"},
+	}
+
+	results := make([]map[string]interface{}, 0)
+	for _, tu := range testUsers {
+		u, err := h.store.GetUserByEmailOrCode(ctx, tu.Code)
+		if err != nil {
+			results = append(results, map[string]interface{}{
+				"code":       tu.Code,
+				"found":      false,
+				"error":      err.Error(),
+				"auth_check": "FAILED_USER_QUERY",
+			})
+			continue
+		}
+
+		valid, verifyErr := auth.VerifyPassword(tu.Pass, u.PasswordHash)
+		verifyStatus := "OK"
+		if verifyErr != nil || !valid {
+			verifyStatus = fmt.Sprintf("PASSWORD_MISMATCH (err=%v)", verifyErr)
+		}
+
+		prefix := u.PasswordHash
+		if len(prefix) > 16 {
+			prefix = prefix[:16]
+		}
+
+		results = append(results, map[string]interface{}{
+			"code":        u.EmployeeCode,
+			"found":       true,
+			"role":        string(u.RoleName),
+			"email":       u.Email,
+			"status":      u.Status,
+			"auth_check":  verifyStatus,
+			"hash_prefix": prefix,
+		})
+	}
+
+	diag["test_accounts"] = results
+
+	users, err := h.store.ListUsers(ctx)
+	if err == nil {
+		diag["total_users_count"] = len(users)
+	} else {
+		diag["total_users_error"] = err.Error()
+	}
+
+	writeJSON(w, http.StatusOK, diag)
+}
+
 // ==============================================================================
 // Auth Handler (Argon2id + JWT) (Promptbook: Prompt 3)
 // ==============================================================================

@@ -5,6 +5,15 @@ import (
 	"time"
 )
 
+func TestPrintHashes(t *testing.T) {
+	h1, _ := HashPassword("AdminPass123!", nil)
+	h2, _ := HashPassword("ManagerPass123!", nil)
+	h3, _ := HashPassword("AgentPass123!", nil)
+	t.Logf("ADMIN_HASH=%s", h1)
+	t.Logf("MANAGER_HASH=%s", h2)
+	t.Logf("AGENT_HASH=%s", h3)
+}
+
 func TestArgon2idPasswordHashing(t *testing.T) {
 	password := "SecretPassw0rd!2026"
 

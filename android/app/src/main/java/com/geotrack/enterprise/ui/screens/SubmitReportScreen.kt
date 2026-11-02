@@ -41,16 +41,16 @@ fun SubmitReportScreen(
     val movingSec by LocationStateHolder.movingTimeSeconds.collectAsState()
     val idleSec by LocationStateHolder.idleTimeSeconds.collectAsState()
 
-    val distanceClaimKm = if (odometerKm > 0.05) odometerKm else 24.50 // Fallback demo distance if not moved
+    val distanceClaimKm = odometerKm
     val efficiency = userProfile?.fuelEfficiencyKmL ?: 35.0
     val fuelRate = userProfile?.fuelRatePerLiter ?: 105.0
 
-    val calculatedLiters = distanceClaimKm / efficiency
+    val calculatedLiters = if (efficiency > 0) distanceClaimKm / efficiency else 0.0
     val calculatedFuelCost = calculatedLiters * fuelRate
 
     var tollAmountStr by remember { mutableStateOf("0") }
     var parkingAmountStr by remember { mutableStateOf("0") }
-    var notes by remember { mutableStateOf("Regular field client deliveries & branch visits.") }
+    var notes by remember { mutableStateOf("") }
 
     val extraToll = tollAmountStr.toDoubleOrNull() ?: 0.0
     val extraParking = parkingAmountStr.toDoubleOrNull() ?: 0.0

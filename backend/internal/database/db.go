@@ -195,30 +195,88 @@ func (db *DB) autoMigrate(ctx context.Context) error {
 	(1, 'SUPER_ADMIN', 'Full administrative access'),
 	(2, 'BRANCH_MANAGER', 'Supervisory access for assigned 5-10 assets'),
 	(3, 'FIELD_AGENT', 'Field tracking and expense claim filing')
-	ON CONFLICT (id) DO NOTHING;
+	ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description;
 
-	-- Seed Default Users with Real Argon2id Passwords
-	INSERT INTO users (id, role_id, full_name, email, employee_code, password_hash) VALUES
-	('00000000-0000-0000-0000-000000000001', 1, 'System Administrator', 'admin@geotrack.com', 'ADM-001', '$argon2id$v=19$m=65536,t=3,p=4$Ljsw7Fo775UXrQdtM7+FUg$3T/0AgAaAO101crlH/bYP14Sb/h7sWXB4ZKuo3miXEo'),
-	('00000000-0000-0000-0000-000000000002', 2, 'Vikram Deshmukh', 'vikram.manager@geotrack.com', 'MGR-042', '$argon2id$v=19$m=65536,t=3,p=4$otZE7kq3Nz49OKI1TMUKBQ$ABxRmQf6Sn5NGx18LE8YGXVDSeeTuepph+rdT2Q3D7w'),
-	('00000000-0000-0000-0000-000000000003', 3, 'Rahul Sharma', 'rahul.sharma@geotrack.com', 'EMP-104', '$argon2id$v=19$m=65536,t=3,p=4$rdRv7qQMZJYafiAfLZo+Mg$Ot+2n6fSZcRI5xleoZushAG/RoA7I3m5//cvqLGSRfU')
-	ON CONFLICT (id) DO UPDATE SET 
-		password_hash = EXCLUDED.password_hash,
-		full_name = EXCLUDED.full_name,
-		email = EXCLUDED.email,
-		employee_code = EXCLUDED.employee_code,
-		role_id = EXCLUDED.role_id,
-		deleted_at = NULL;
+	-- Bulletproof Seed & Sync of Default Users with Authentic Argon2id Hashes
+	DO $$ BEGIN
+		IF EXISTS (SELECT 1 FROM users WHERE employee_code = 'ADM-001' OR email = 'admin@geotrack.com') THEN
+			UPDATE users SET 
+				password_hash = '$argon2id$v=19$m=65536,t=3,p=4$Ljsw7Fo775UXrQdtM7+FUg$3T/0AgAaAO101crlH/bYP14Sb/h7sWXB4ZKuo3miXEo',
+				role_id = 1,
+				full_name = 'System Administrator',
+				email = 'admin@geotrack.com',
+				employee_code = 'ADM-001',
+				status = 'ACTIVE',
+				failed_login_attempts = 0,
+				locked_until = NULL,
+				deleted_at = NULL
+			WHERE employee_code = 'ADM-001' OR email = 'admin@geotrack.com';
+		ELSE
+			INSERT INTO users (id, role_id, full_name, email, employee_code, password_hash, status)
+			VALUES ('00000000-0000-0000-0000-000000000001', 1, 'System Administrator', 'admin@geotrack.com', 'ADM-001', '$argon2id$v=19$m=65536,t=3,p=4$Ljsw7Fo775UXrQdtM7+FUg$3T/0AgAaAO101crlH/bYP14Sb/h7sWXB4ZKuo3miXEo', 'ACTIVE');
+		END IF;
 
-	-- Seed Device
-	INSERT INTO devices (id, hardware_device_id, assigned_user_id, vehicle_registration) VALUES
-	('00000000-0000-0000-0000-000000000010', 'HW-DEV-001', '00000000-0000-0000-0000-000000000003', 'MH-02-CB-8842')
-	ON CONFLICT (id) DO NOTHING;
+		IF EXISTS (SELECT 1 FROM users WHERE employee_code = 'MGR-042' OR email = 'vikram.manager@geotrack.com') THEN
+			UPDATE users SET 
+				password_hash = '$argon2id$v=19$m=65536,t=3,p=4$otZE7kq3Nz49OKI1TMUKBQ$ABxRmQf6Sn5NGx18LE8YGXVDSeeTuepph+rdT2Q3D7w',
+				role_id = 2,
+				full_name = 'Vikram Deshmukh',
+				email = 'vikram.manager@geotrack.com',
+				employee_code = 'MGR-042',
+				status = 'ACTIVE',
+				failed_login_attempts = 0,
+				locked_until = NULL,
+				deleted_at = NULL
+			WHERE employee_code = 'MGR-042' OR email = 'vikram.manager@geotrack.com';
+		ELSE
+			INSERT INTO users (id, role_id, full_name, email, employee_code, password_hash, status)
+			VALUES ('00000000-0000-0000-0000-000000000002', 2, 'Vikram Deshmukh', 'vikram.manager@geotrack.com', 'MGR-042', '$argon2id$v=19$m=65536,t=3,p=4$otZE7kq3Nz49OKI1TMUKBQ$ABxRmQf6Sn5NGx18LE8YGXVDSeeTuepph+rdT2Q3D7w', 'ACTIVE');
+		END IF;
 
-	-- Seed Assignment
-	INSERT INTO user_asset_assignments (manager_id, agent_id, device_id) VALUES
-	('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000010')
-	ON CONFLICT (manager_id, agent_id) DO NOTHING;
+		IF EXISTS (SELECT 1 FROM users WHERE employee_code = 'EMP-104' OR email = 'rahul.sharma@geotrack.com') THEN
+			UPDATE users SET 
+				password_hash = '$argon2id$v=19$m=65536,t=3,p=4$rdRv7qQMZJYafiAfLZo+Mg$Ot+2n6fSZcRI5xleoZushAG/RoA7I3m5//cvqLGSRfU',
+				role_id = 3,
+				full_name = 'Rahul Sharma',
+				email = 'rahul.sharma@geotrack.com',
+				employee_code = 'EMP-104',
+				status = 'ACTIVE',
+				failed_login_attempts = 0,
+				locked_until = NULL,
+				deleted_at = NULL
+			WHERE employee_code = 'EMP-104' OR email = 'rahul.sharma@geotrack.com';
+		ELSE
+			INSERT INTO users (id, role_id, full_name, email, employee_code, password_hash, status)
+			VALUES ('00000000-0000-0000-0000-000000000003', 3, 'Rahul Sharma', 'rahul.sharma@geotrack.com', 'EMP-104', '$argon2id$v=19$m=65536,t=3,p=4$rdRv7qQMZJYafiAfLZo+Mg$Ot+2n6fSZcRI5xleoZushAG/RoA7I3m5//cvqLGSRfU', 'ACTIVE');
+		END IF;
+	END $$;
+
+	-- Seed Device and Manager-Agent Assignment
+	DO $$ 
+	DECLARE
+		mgr_id UUID;
+		agent_id UUID;
+		dev_id UUID;
+	BEGIN
+		SELECT id INTO mgr_id FROM users WHERE employee_code = 'MGR-042' LIMIT 1;
+		SELECT id INTO agent_id FROM users WHERE employee_code = 'EMP-104' LIMIT 1;
+		
+		IF agent_id IS NOT NULL THEN
+			SELECT id INTO dev_id FROM devices WHERE assigned_user_id = agent_id LIMIT 1;
+			IF dev_id IS NULL THEN
+				INSERT INTO devices (id, hardware_device_id, assigned_user_id, vehicle_registration)
+				VALUES ('00000000-0000-0000-0000-000000000010', 'HW-DEV-001', agent_id, 'MH-02-CB-8842')
+				ON CONFLICT DO NOTHING
+				RETURNING id INTO dev_id;
+			END IF;
+
+			IF mgr_id IS NOT NULL AND dev_id IS NOT NULL THEN
+				INSERT INTO user_asset_assignments (manager_id, agent_id, device_id)
+				VALUES (mgr_id, agent_id, dev_id)
+				ON CONFLICT (manager_id, agent_id) DO NOTHING;
+			END IF;
+		END IF;
+	END $$;
 	`
 
 	_, err := db.Pool.Exec(ctx, schema)

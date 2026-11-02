@@ -464,8 +464,8 @@ type PostgresStore struct {
 
 func (p *PostgresStore) GetUserByEmailOrCode(ctx context.Context, identifier string) (*models.User, error) {
 	query := `
-		SELECT u.id, u.role_id, r.name, u.team_id, u.full_name, u.email, 
-		       COALESCE(u.phone_number, ''), u.employee_code, u.password_hash, u.status, 
+		SELECT u.id, u.role_id, r.name::text, u.team_id, u.full_name, u.email, 
+		       COALESCE(u.phone_number, ''), u.employee_code, u.password_hash, u.status::text, 
 		       u.failed_login_attempts, u.locked_until, u.token_version, u.created_at, u.updated_at
 		FROM users u
 		JOIN roles r ON u.role_id = r.id
@@ -491,8 +491,8 @@ func (p *PostgresStore) GetUserByEmailOrCode(ctx context.Context, identifier str
 
 func (p *PostgresStore) GetUserByID(ctx context.Context, id uuid.UUID) (*models.User, error) {
 	query := `
-		SELECT u.id, u.role_id, r.name, u.team_id, u.full_name, u.email, 
-		       COALESCE(u.phone_number, ''), u.employee_code, u.password_hash, u.status, 
+		SELECT u.id, u.role_id, r.name::text, u.team_id, u.full_name, u.email, 
+		       COALESCE(u.phone_number, ''), u.employee_code, u.password_hash, u.status::text, 
 		       u.failed_login_attempts, u.locked_until, u.token_version, u.created_at, u.updated_at
 		FROM users u
 		JOIN roles r ON u.role_id = r.id
@@ -565,8 +565,8 @@ func (p *PostgresStore) CreateUser(ctx context.Context, req *models.CreateUserRe
 
 func (p *PostgresStore) ListUsers(ctx context.Context) ([]*models.User, error) {
 	query := `
-		SELECT u.id, u.role_id, r.name, u.team_id, u.full_name, u.email, 
-		       COALESCE(u.phone_number, ''), u.employee_code, '', u.status, 
+		SELECT u.id, u.role_id, r.name::text, u.team_id, u.full_name, u.email, 
+		       COALESCE(u.phone_number, ''), u.employee_code, '', u.status::text, 
 		       u.failed_login_attempts, u.locked_until, u.token_version, u.created_at, u.updated_at
 		FROM users u
 		JOIN roles r ON u.role_id = r.id
@@ -626,8 +626,8 @@ func (p *PostgresStore) AssignAssetsToManager(ctx context.Context, managerID uui
 
 func (p *PostgresStore) GetAssignedAgentsForManager(ctx context.Context, managerID uuid.UUID) ([]*models.User, error) {
 	query := `
-		SELECT u.id, u.role_id, r.name, u.team_id, u.full_name, u.email, 
-		       COALESCE(u.phone_number, ''), u.employee_code, '', u.status, 
+		SELECT u.id, u.role_id, r.name::text, u.team_id, u.full_name, u.email, 
+		       COALESCE(u.phone_number, ''), u.employee_code, '', u.status::text, 
 		       u.failed_login_attempts, u.locked_until, u.token_version, u.created_at, u.updated_at
 		FROM user_asset_assignments a
 		JOIN users u ON a.agent_id = u.id
@@ -690,7 +690,7 @@ func (p *PostgresStore) ListReportsForManager(ctx context.Context, managerID uui
 		       r.total_distance_km, r.total_moving_time_mins, r.total_idle_time_mins,
 		       r.calculated_fuel_liters, r.fuel_rate_applied, r.total_fuel_amount,
 		       r.extra_toll_amount, r.extra_parking_amount, r.total_claim_amount,
-		       COALESCE(r.agent_notes, ''), r.status, r.reviewed_by, r.reviewed_at,
+		       COALESCE(r.agent_notes, ''), r.status::text, r.reviewed_by, r.reviewed_at,
 		       COALESCE(r.rejection_reason, ''), r.created_at, r.updated_at
 		FROM reports r
 		JOIN users u ON r.user_id = u.id
@@ -733,7 +733,7 @@ func (p *PostgresStore) ListReportsForAgent(ctx context.Context, agentID uuid.UU
 		       r.total_distance_km, r.total_moving_time_mins, r.total_idle_time_mins,
 		       r.calculated_fuel_liters, r.fuel_rate_applied, r.total_fuel_amount,
 		       r.extra_toll_amount, r.extra_parking_amount, r.total_claim_amount,
-		       COALESCE(r.agent_notes, ''), r.status, r.reviewed_by, r.reviewed_at,
+		       COALESCE(r.agent_notes, ''), r.status::text, r.reviewed_by, r.reviewed_at,
 		       COALESCE(r.rejection_reason, ''), r.created_at, r.updated_at
 		FROM reports r
 		JOIN users u ON r.user_id = u.id
@@ -770,7 +770,7 @@ func (p *PostgresStore) ReviewReport(ctx context.Context, reportID uuid.UUID, ma
 	// Server-side check that this report belongs to an assigned agent or caller is superadmin
 	query := `
 		UPDATE reports
-		SET status = $1, reviewed_by = $2, reviewed_at = NOW(), rejection_reason = $3, updated_at = NOW()
+		SET status = $1::report_status_enum, reviewed_by = $2, reviewed_at = NOW(), rejection_reason = $3, updated_at = NOW()
 		WHERE id = $4
 		  AND (
 			EXISTS (SELECT 1 FROM users WHERE id = $2 AND role_id = 1)

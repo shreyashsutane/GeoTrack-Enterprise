@@ -32,8 +32,8 @@ fun LoginScreen(
     val coroutineScope = rememberCoroutineScope()
     val apiClient = remember { ApiClient() }
 
-    var emailOrCode by remember { mutableStateOf("EMP-104") }
-    var password by remember { mutableStateOf("AgentPass123!") }
+    var emailOrCode by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
 
     val savedApiUrl by preferences.apiUrlFlow.collectAsState(initial = AppPreferences.DEFAULT_API_URL)
@@ -178,8 +178,7 @@ fun LoginScreen(
                                         errorMessage = resp.message ?: "Authentication failed."
                                     }
                                 }.onFailure { err ->
-                                    // Provide clear feedback with fallback demo option
-                                    errorMessage = "Could not reach server: ${err.localizedMessage}"
+                                    errorMessage = "Login failed: ${err.localizedMessage}"
                                 }
                                 isLoading = false
                             }
@@ -201,37 +200,6 @@ fun LoginScreen(
                                 fontSize = 16.sp
                             )
                         }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Offline Demo Bypass
-                    OutlinedButton(
-                        onClick = {
-                            coroutineScope.launch {
-                                val demoUser = UserProfile(
-                                    id = "demo-agent-104",
-                                    fullName = "Rahul Sharma",
-                                    email = "rahul.sharma@geotrack.com",
-                                    role = "FIELD_AGENT",
-                                    employeeCode = "EMP-104",
-                                    vehicleRegistration = "MH-02-CB-8842",
-                                    vehicleType = "Motorcycle",
-                                    fuelEfficiencyKmL = 38.0,
-                                    fuelRatePerLiter = 105.0
-                                )
-                                preferences.saveAuthSession("demo-jwt-token-offline", demoUser)
-                                onLoginSuccess()
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary),
-                        border = ButtonDefaults.outlinedButtonBorder().copy(brush = Brush.linearGradient(listOf(DarkBorder, DarkBorder)))
-                    ) {
-                        Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(16.dp), tint = AccentOrange)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Instant Offline Demo Mode", fontSize = 13.sp)
                     }
                 }
             }

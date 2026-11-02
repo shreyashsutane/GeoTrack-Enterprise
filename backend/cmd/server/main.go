@@ -55,6 +55,7 @@ func main() {
 	// Public Authentication
 	mux.HandleFunc("POST /api/v1/auth/login", h.Login)
 	mux.HandleFunc("POST /api/v1/auth/logout", h.Logout)
+	mux.HandleFunc("GET /api/v1/auth/diag", h.AuthDiagnostics)
 
 	// Mobile Telematics Ping
 	mux.HandleFunc("POST /api/v1/telematics/ping", h.PingTelematics)
