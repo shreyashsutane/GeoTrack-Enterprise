@@ -23,7 +23,7 @@ class AppPreferences(private val context: Context) {
         private val KEY_API_URL = stringPreferencesKey("backend_api_url")
         private val KEY_USER_PROFILE = stringPreferencesKey("logged_user_profile")
         private val KEY_DEVICE_ID = stringPreferencesKey("hardware_device_id")
-        const val DEFAULT_API_URL = "http://10.0.2.2:8080"
+        const val DEFAULT_API_URL = "https://geotrack-enterprise.onrender.com"
     }
 
     val authTokenFlow: Flow<String?> = context.dataStore.data.map { prefs ->
