@@ -51,6 +51,7 @@ func main() {
 	// Public Health Probes (Promptbook: Prompt 66)
 	mux.HandleFunc("GET /healthz", h.HealthCheck)
 	mux.HandleFunc("GET /readyz", h.HealthCheck)
+	mux.HandleFunc("GET /api/v1/config", h.GetPublicConfig)
 
 	// Public Authentication
 	mux.HandleFunc("POST /api/v1/auth/login", h.Login)

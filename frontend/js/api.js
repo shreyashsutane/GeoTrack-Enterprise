@@ -69,6 +69,21 @@ const api = {
     localStorage.removeItem('geotrack_user');
   },
 
+  async getPublicConfig() {
+    try {
+      const res = await this.request('/api/v1/config');
+      if (res && res.google_maps_key) {
+        localStorage.setItem('geotrack_google_maps_key', res.google_maps_key);
+      }
+      return res;
+    } catch (e) {
+      return {
+        google_maps_configured: !!localStorage.getItem('geotrack_google_maps_key'),
+        google_maps_key: localStorage.getItem('geotrack_google_maps_key') || ''
+      };
+    }
+  },
+
   async request(endpoint, options = {}) {
     const token = this.getToken();
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -38,8 +39,17 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 }
 
 // ==============================================================================
-// Health Checks (Promptbook: Prompt 66)
+// Health Checks & Environment Configuration (Promptbook: Prompt 66)
 // ==============================================================================
+func (h *Handler) GetPublicConfig(w http.ResponseWriter, r *http.Request) {
+	mapsKey := os.Getenv("GOOGLE_MAPS_API_KEY")
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"google_maps_configured": mapsKey != "",
+		"google_maps_key":        mapsKey,
+		"version":                "1.0.0",
+	})
+}
+
 func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"status":    "healthy",
