@@ -1,0 +1,21 @@
+# Gradle
+.gradle/
+build/
+*/build/
+app/build/
+
+# Android
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Go
+backend/server
+*.exe
+*.test
+
+# OS & IDE
+.DS_Store
+.idea/
+*.iml
