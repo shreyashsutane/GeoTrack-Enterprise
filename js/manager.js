@@ -11,16 +11,48 @@ let agentMarkers = {};
 function initMap() {
   if (map || !window.L) return;
 
-  // Pune / Mumbai metropolitan hub default coordinates
-  map = L.map('map', { zoomControl: false }).setView([18.5204, 73.8567], 13);
+  // 1. ESRI World Dark Gray Canvas (100% Free, Zero API Key Required, Zero Watermarks)
+  const esriDark = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+    attribution: '&copy; Esri &copy; OpenStreetMap contributors',
+    maxZoom: 16
+  });
+
+  // 2. OpenStreetMap Standard (100% Free, Zero API Key Required, Zero Watermarks)
+  const osmLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors',
+    maxZoom: 19
+  });
+
+  // 3. Optional Google Maps (Reads strictly from user browser localStorage, zero exposed secret keys in git)
+  const customGoogleKey = localStorage.getItem('geotrack_google_maps_key') || '';
+  const googleStreets = customGoogleKey ? L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&key=' + encodeURIComponent(customGoogleKey), {
+    attribution: '&copy; Google Maps',
+    maxZoom: 20
+  }) : null;
+
+  const googleSatellite = customGoogleKey ? L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&key=' + encodeURIComponent(customGoogleKey), {
+    attribution: '&copy; Google Maps Satellite',
+    maxZoom: 20
+  }) : null;
+
+  // Initialize map with ESRI Dark as default (completely clean, dark, no watermark)
+  map = L.map('map', { 
+    zoomControl: false,
+    layers: [esriDark]
+  }).setView([18.5204, 73.8567], 13);
+
   L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-  // Free Dark Mode CartoDB tiles (100% Free Tier, zero credit card)
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; CARTO &copy; OpenStreetMap',
-    maxZoom: 19,
-    subdomains: 'abcd',
-  }).addTo(map);
+  // Map layer controls
+  const baseMaps = {
+    "🌙 Dark Fleet (Default)": esriDark,
+    "🌍 OpenStreetMap": osmLayer
+  };
+  if (googleStreets) {
+    baseMaps["🗺️ Google Maps Streets"] = googleStreets;
+    baseMaps["🛰️ Google Maps Satellite"] = googleSatellite;
+  }
+  L.control.layers(baseMaps, null, { position: 'topright' }).addTo(map);
 }
 
 function updateMapMarkers() {
