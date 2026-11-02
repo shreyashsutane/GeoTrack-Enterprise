@@ -77,10 +77,10 @@ class LocationTrackingService : Service() {
         val notification = buildNotification("Starting Shift...", "Connecting to GPS satellites")
         startForeground(NOTIFICATION_ID, notification)
 
-        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 2500L)
-            .setMinUpdateIntervalMillis(1500L)
-            .setMinUpdateDistanceMeters(1.5f)
-            .setWaitForAccurateLocation(true)
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1500L)
+            .setMinUpdateIntervalMillis(1000L)
+            .setMinUpdateDistanceMeters(0.5f)
+            .setWaitForAccurateLocation(false)
             .build()
 
         fusedLocationClient.requestLocationUpdates(
