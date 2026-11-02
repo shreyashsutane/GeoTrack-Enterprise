@@ -49,11 +49,37 @@
           <i class="fa-solid fa-motorcycle" style="color:var(--accent-green);"></i> Agent
         </button>
       </div>
+
+      <div style="margin-top:16px; text-align:center;">
+        <button type="button" onclick="configureBackendUrl()" style="background:none; border:none; color:var(--text-muted); font-size:0.75rem; cursor:pointer; text-decoration:underline;">
+          <i class="fa-solid fa-server"></i> Backend API: <span id="currentApiDisplay">Auto</span>
+        </button>
+      </div>
     </div>
   </div>
 
   <script src="js/api.js"></script>
   <script>
+    function updateApiDisplay() {
+      const current = localStorage.getItem('geotrack_api_url') || (window.location.hostname === 'localhost' ? 'http://localhost:8080' : 'Cloud Demo Mode');
+      const el = document.getElementById('currentApiDisplay');
+      if (el) el.textContent = current;
+    }
+
+    function configureBackendUrl() {
+      const current = localStorage.getItem('geotrack_api_url') || '';
+      const url = prompt('Enter your live Go backend URL (e.g. https://geotrack-backend.onrender.com or leave blank for default):', current);
+      if (url !== null) {
+        if (url.trim()) {
+          localStorage.setItem('geotrack_api_url', url.trim().replace(/\/$/, ''));
+        } else {
+          localStorage.removeItem('geotrack_api_url');
+        }
+        updateApiDisplay();
+        window.location.reload();
+      }
+    }
+
     function fillLogin(code, pass) {
       document.getElementById('inputEmailOrCode').value = code;
       document.getElementById('inputPassword').value = pass;
@@ -92,6 +118,7 @@
 
     // Check existing valid session
     window.addEventListener('DOMContentLoaded', async () => {
+      updateApiDisplay();
       if (api.getToken()) {
         try {
           const user = await api.getCurrentUser();
