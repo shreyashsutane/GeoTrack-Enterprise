@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: geotrack-backend
+    runtime: go
+    plan: free
+    rootDir: backend
+    buildCommand: go build -o server ./cmd/server
+    startCommand: ./server
+    healthCheckPath: /healthz
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
