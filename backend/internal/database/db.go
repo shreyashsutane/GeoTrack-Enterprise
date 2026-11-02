@@ -78,6 +78,15 @@ func (db *DB) autoMigrate(ctx context.Context) error {
 		created_at TIMESTAMPTZ DEFAULT NOW()
 	);
 
+	CREATE TABLE IF NOT EXISTS teams (
+		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		name VARCHAR(100) NOT NULL,
+		code VARCHAR(30) UNIQUE NOT NULL,
+		branch_city VARCHAR(100),
+		created_at TIMESTAMPTZ DEFAULT NOW(),
+		updated_at TIMESTAMPTZ DEFAULT NOW()
+	);
+
 	DO $$ BEGIN
 		CREATE TYPE user_status_enum AS ENUM ('ACTIVE', 'SUSPENDED', 'PENDING_ACTIVATION');
 	EXCEPTION
@@ -87,16 +96,28 @@ func (db *DB) autoMigrate(ctx context.Context) error {
 	CREATE TABLE IF NOT EXISTS users (
 		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 		role_id INT NOT NULL REFERENCES roles(id) ON DELETE RESTRICT,
+		team_id UUID REFERENCES teams(id) ON DELETE SET NULL,
 		full_name VARCHAR(120) NOT NULL,
 		email VARCHAR(255) UNIQUE NOT NULL,
+		phone_number VARCHAR(20),
 		employee_code VARCHAR(50) UNIQUE NOT NULL,
 		password_hash VARCHAR(255) NOT NULL,
 		status user_status_enum DEFAULT 'ACTIVE',
 		failed_login_attempts INT DEFAULT 0,
 		locked_until TIMESTAMPTZ NULL,
+		token_version INT DEFAULT 1,
+		created_by UUID REFERENCES users(id),
 		created_at TIMESTAMPTZ DEFAULT NOW(),
-		updated_at TIMESTAMPTZ DEFAULT NOW()
+		updated_at TIMESTAMPTZ DEFAULT NOW(),
+		deleted_at TIMESTAMPTZ NULL
 	);
+
+	-- Guarantee all expected columns exist even if table was created previously
+	ALTER TABLE users ADD COLUMN IF NOT EXISTS team_id UUID;
+	ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_number VARCHAR(20);
+	ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INT DEFAULT 1;
+	ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ NULL;
+	ALTER TABLE users ADD COLUMN IF NOT EXISTS created_by UUID;
 
 	CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 	CREATE INDEX IF NOT EXISTS idx_users_employee ON users(employee_code);
@@ -186,7 +207,8 @@ func (db *DB) autoMigrate(ctx context.Context) error {
 		full_name = EXCLUDED.full_name,
 		email = EXCLUDED.email,
 		employee_code = EXCLUDED.employee_code,
-		role_id = EXCLUDED.role_id;
+		role_id = EXCLUDED.role_id,
+		deleted_at = NULL;
 
 	-- Seed Device
 	INSERT INTO devices (id, hardware_device_id, assigned_user_id, vehicle_registration) VALUES

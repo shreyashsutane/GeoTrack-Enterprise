@@ -67,7 +67,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.store.GetUserByEmailOrCode(r.Context(), req.EmailOrCode)
 	if err != nil {
-		// Constant-time generic error to prevent account enumeration (Promptbook: Prompt 3)
+		fmt.Printf("[Auth] GetUserByEmailOrCode failed for '%s': %v\n", req.EmailOrCode, err)
 		writeError(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	}
@@ -86,6 +86,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	// Verify Argon2id Hash
 	valid, err := auth.VerifyPassword(req.Password, user.PasswordHash)
 	if err != nil || !valid {
+		fmt.Printf("[Auth] VerifyPassword failed for '%s': err=%v, valid=%v\n", req.EmailOrCode, err, valid)
 		_ = h.store.RecordFailedLogin(r.Context(), user.ID)
 		writeError(w, http.StatusUnauthorized, "invalid credentials")
 		return
