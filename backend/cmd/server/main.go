@@ -83,6 +83,22 @@ func main() {
 	mux.Handle("POST /api/v1/admin/assign", authMW(adminMW(http.HandlerFunc(h.AssignAssets))))
 	mux.Handle("GET /api/v1/admin/audit-logs", authMW(adminMW(http.HandlerFunc(h.ListAuditLogs))))
 
+	// Static Frontend Serving (Unified Monolith for 100% Free Single-Port Hosting)
+	frontendDir := os.Getenv("FRONTEND_DIR")
+	if frontendDir == "" {
+		if _, err := os.Stat("../frontend"); err == nil {
+			frontendDir = "../frontend"
+		} else if _, err := os.Stat("./frontend"); err == nil {
+			frontendDir = "./frontend"
+		}
+	}
+
+	if frontendDir != "" {
+		fileServer := http.FileServer(http.Dir(frontendDir))
+		mux.Handle("GET /", fileServer)
+		log.Printf("[Server] Serving web dashboard & assets from %s", frontendDir)
+	}
+
 	// Apply Global Middleware (CORS)
 	handlerWithCORS := middleware.CORS(mux)
 

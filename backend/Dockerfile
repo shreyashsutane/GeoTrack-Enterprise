@@ -19,7 +19,9 @@ RUN go mod download
 COPY . .
 
 # Compile optimized static binary (stripped debug symbols for tiny image size)
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build \
+ARG TARGETOS
+ARG TARGETARCH
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} go build \
     -ldflags="-s -w" \
     -o /app/bin/server ./cmd/server
 
@@ -34,10 +36,13 @@ WORKDIR /home/appuser
 # Copy trusted certificates & compiled binary
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /app/bin/server /home/appuser/server
+COPY --from=builder /app/../frontend /home/appuser/frontend 2>/dev/null || true
 
 # Change ownership to non-root user
 RUN chown -R appuser:appgroup /home/appuser
 USER appuser
+
+ENV FRONTEND_DIR=/home/appuser/frontend
 
 EXPOSE 8080
 
