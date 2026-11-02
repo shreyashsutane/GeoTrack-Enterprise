@@ -251,6 +251,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       return;
     }
     document.getElementById('navUserName').textContent = user.full_name;
+    await api.getPublicConfig();
     initMap();
     await loadAssignedFleet();
     await loadManagerReports();
