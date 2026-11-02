@@ -151,6 +151,9 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.EmailOrCode == "" && req.EmailOrCodeCamel != "" {
+		req.EmailOrCode = req.EmailOrCodeCamel
+	}
 	req.EmailOrCode = strings.TrimSpace(req.EmailOrCode)
 	if req.EmailOrCode == "" || req.Password == "" {
 		writeError(w, http.StatusBadRequest, "employee code/email and password are required")
@@ -205,6 +208,15 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   12 * 3600,
 	})
 
+	// Populate Android client compatibility aliases
+	user.FullNameCamel = user.FullName
+	user.RoleCamel = string(user.RoleName)
+	user.EmployeeCodeCamel = user.EmployeeCode
+	user.VehicleRegistration = "MH-02-CB-8842"
+	user.VehicleType = "Motorcycle"
+	user.FuelEfficiencyKmL = 35.0
+	user.FuelRatePerLiter = 105.0
+
 	writeJSON(w, http.StatusOK, models.LoginResponse{
 		Success: true,
 		Token:   token,
@@ -231,6 +243,14 @@ func (h *Handler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "user profile not found")
 		return
 	}
+
+	user.FullNameCamel = user.FullName
+	user.RoleCamel = string(user.RoleName)
+	user.EmployeeCodeCamel = user.EmployeeCode
+	user.VehicleRegistration = "MH-02-CB-8842"
+	user.VehicleType = "Motorcycle"
+	user.FuelEfficiencyKmL = 35.0
+	user.FuelRatePerLiter = 105.0
 
 	writeJSON(w, http.StatusOK, user)
 }
@@ -408,6 +428,41 @@ func (h *Handler) SubmitReport(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&report); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid report payload")
 		return
+	}
+
+	// Map camelCase fields from Android APK client if present
+	if report.ReportDate == "" && report.ReportDateCamel != "" {
+		report.ReportDate = report.ReportDateCamel
+	}
+	if report.TotalDistanceKm == 0 && report.TotalDistanceKmCamel != nil {
+		report.TotalDistanceKm = *report.TotalDistanceKmCamel
+	}
+	if report.TotalMovingTimeMins == 0 && report.TotalMovingTimeMinsCamel != nil {
+		report.TotalMovingTimeMins = *report.TotalMovingTimeMinsCamel
+	}
+	if report.TotalIdleTimeMins == 0 && report.TotalIdleTimeMinsCamel != nil {
+		report.TotalIdleTimeMins = *report.TotalIdleTimeMinsCamel
+	}
+	if report.CalculatedFuelLiters == 0 && report.CalculatedFuelLitersCamel != nil {
+		report.CalculatedFuelLiters = *report.CalculatedFuelLitersCamel
+	}
+	if report.FuelRateApplied == 0 && report.FuelRateAppliedCamel != nil {
+		report.FuelRateApplied = *report.FuelRateAppliedCamel
+	}
+	if report.TotalFuelAmount == 0 && report.TotalFuelAmountCamel != nil {
+		report.TotalFuelAmount = *report.TotalFuelAmountCamel
+	}
+	if report.ExtraTollAmount == 0 && report.ExtraTollAmountCamel != nil {
+		report.ExtraTollAmount = *report.ExtraTollAmountCamel
+	}
+	if report.ExtraParkingAmount == 0 && report.ExtraParkingAmountCamel != nil {
+		report.ExtraParkingAmount = *report.ExtraParkingAmountCamel
+	}
+	if report.TotalClaimAmount == 0 && report.TotalClaimAmountCamel != nil {
+		report.TotalClaimAmount = *report.TotalClaimAmountCamel
+	}
+	if report.AgentNotes == "" && report.AgentNotesCamel != "" {
+		report.AgentNotes = report.AgentNotesCamel
 	}
 
 	report.UserID = agentID

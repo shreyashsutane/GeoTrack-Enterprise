@@ -55,8 +55,17 @@ type User struct {
 	FailedLoginAttempts int       `json:"-"`
 	LockedUntil         *time.Time `json:"-"`
 	TokenVersion        int       `json:"-"`
-	CreatedAt           time.Time `json:"created_at"`
-	UpdatedAt           time.Time `json:"updated_at"`
+	CreatedAt           time.Time  `json:"created_at"`
+	UpdatedAt           time.Time  `json:"updated_at"`
+
+	// Compatibility aliases for Android Gson client (camelCase)
+	FullNameCamel       string  `json:"fullName,omitempty"`
+	RoleCamel           string  `json:"role,omitempty"`
+	EmployeeCodeCamel   string  `json:"employeeCode,omitempty"`
+	VehicleRegistration string  `json:"vehicleRegistration,omitempty"`
+	VehicleType         string  `json:"vehicleType,omitempty"`
+	FuelEfficiencyKmL   float64 `json:"fuelEfficiencyKmL,omitempty"`
+	FuelRatePerLiter    float64 `json:"fuelRatePerLiter,omitempty"`
 }
 
 func (u *User) Validate() error {
@@ -118,6 +127,19 @@ type Report struct {
 	RejectionReason      string       `json:"rejection_reason,omitempty"`
 	CreatedAt            time.Time    `json:"created_at"`
 	UpdatedAt            time.Time    `json:"updated_at"`
+
+	// Compatibility aliases for Android Gson client (camelCase)
+	ReportDateCamel           string   `json:"reportDate,omitempty"`
+	TotalDistanceKmCamel      *float64 `json:"totalDistanceKm,omitempty"`
+	TotalMovingTimeMinsCamel  *int     `json:"totalMovingTimeMins,omitempty"`
+	TotalIdleTimeMinsCamel    *int     `json:"totalIdleTimeMins,omitempty"`
+	CalculatedFuelLitersCamel *float64 `json:"calculatedFuelLiters,omitempty"`
+	FuelRateAppliedCamel      *float64 `json:"fuelRateApplied,omitempty"`
+	TotalFuelAmountCamel      *float64 `json:"totalFuelAmount,omitempty"`
+	ExtraTollAmountCamel      *float64 `json:"extraTollAmount,omitempty"`
+	ExtraParkingAmountCamel   *float64 `json:"extraParkingAmount,omitempty"`
+	TotalClaimAmountCamel     *float64 `json:"totalClaimAmount,omitempty"`
+	AgentNotesCamel           string   `json:"agentNotes,omitempty"`
 }
 
 // Validate ensures positive financial values and correct date formats (Prompt 37: Money arithmetic)
@@ -159,8 +181,9 @@ type AuditLog struct {
 
 // Request and Response DTOs
 type LoginRequest struct {
-	EmailOrCode string `json:"email_or_code"`
-	Password    string `json:"password"`
+	EmailOrCode      string `json:"email_or_code"`
+	EmailOrCodeCamel string `json:"emailOrCode,omitempty"`
+	Password         string `json:"password"`
 }
 
 type LoginResponse struct {
