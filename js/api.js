@@ -6,7 +6,7 @@
 const CUSTOM_API_URL = localStorage.getItem('geotrack_api_url');
 const API_BASE_URL = CUSTOM_API_URL || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   ? 'http://localhost:8080'
-  : '');
+  : (window.location.hostname.endsWith('onrender.com') ? '' : 'https://geotrack-enterprise.onrender.com'));
 
 // Local Demo State for static hosting (e.g. GitHub Pages) when backend is offline
 const DEMO_STORE = {
