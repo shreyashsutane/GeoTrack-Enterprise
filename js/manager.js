@@ -54,13 +54,27 @@ async function loadGoogleMapsScript(apiKey) {
 }
 
 async function initMap(apiKey = '') {
-  const googleKey = apiKey || localStorage.getItem('geotrack_google_maps_key') || '';
+  let googleKey = apiKey || localStorage.getItem('geotrack_google_maps_key') || '';
+  if (!googleKey) {
+    try {
+      const cfg = await api.getPublicConfig();
+      if (cfg && cfg.google_maps_key) {
+        googleKey = cfg.google_maps_key;
+      }
+    } catch (e) {}
+  }
 
   if (googleKey) {
     try {
       await loadGoogleMapsScript(googleKey);
       const container = document.getElementById('map');
       if (container && window.google && window.google.maps) {
+        if (leafletMap) {
+          try { leafletMap.remove(); } catch (e) {}
+          leafletMap = null;
+        }
+        container.innerHTML = '';
+        container.className = '';
         googleMap = new google.maps.Map(container, {
           center: { lat: 18.5204, lng: 73.8567 },
           zoom: 13,

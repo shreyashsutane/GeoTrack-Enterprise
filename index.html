@@ -103,6 +103,7 @@
     // Check existing valid session
     window.addEventListener('DOMContentLoaded', async () => {
       updateApiDisplay();
+      api.getPublicConfig(); // Preload Google Maps API configuration
       if (api.getToken()) {
         try {
           const user = await api.getCurrentUser();
