@@ -122,6 +122,8 @@ function initLeafletFallback() {
   L.control.layers({ "🌙 Dark Fleet": esriDark, "🌍 OpenStreetMap": osmLayer }, null, { position: 'topright' }).addTo(leafletMap);
 }
 
+let hasInitialFittedBounds = false;
+
 function updateMapMarkers() {
   const onlineAgents = (assignedAgents || []).filter(a => a.is_online === true && a.lat != null && a.lng != null);
   const badge = document.getElementById('fleetCountBadge');
@@ -131,89 +133,92 @@ function updateMapMarkers() {
 
   // 1. Google Maps Rendering (Native SDK)
   if (isGoogleMapsActive && googleMap) {
-    Object.values(googleMarkers).forEach(m => m.marker.setMap(null));
-    googleMarkers = {};
-
-    if (onlineAgents.length === 0) return;
-
+    const activeIds = new Set();
     const bounds = new google.maps.LatLngBounds();
 
     onlineAgents.forEach((agent, i) => {
+      const markerKey = agent.id || agent.employee_code || i;
+      activeIds.add(markerKey);
       const pos = { lat: agent.lat, lng: agent.lng };
       bounds.extend(pos);
 
-      const marker = new google.maps.Marker({
-        position: pos,
-        map: googleMap,
-        title: agent.full_name,
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 10,
-          fillColor: '#00e5ff',
-          fillOpacity: 1,
-          strokeColor: '#ffffff',
-          strokeWeight: 2
-        }
-      });
-
-      const infoWindow = new google.maps.InfoWindow({
-        content: `
-          <div style="color:#111; font-family:sans-serif; min-width:180px; padding:4px;">
-            <h4 style="margin:0 0 4px 0; font-size:14px; font-weight:700;">${escapeHtml(agent.full_name)}</h4>
-            <p style="margin:0 0 6px 0; font-size:12px; color:#555;">Code: <strong>${escapeHtml(agent.employee_code)}</strong></p>
-            <div style="font-size:11px; color:#222; background:#f4f4f4; padding:6px; border-radius:4px; display:flex; flex-direction:column; gap:3px;">
-              <div>Status: <span style="color:#00a86b; font-weight:700;">● LIVE TRANSMITTING</span></div>
-              <div>Speed: <strong>${(agent.speed_kmh || 0).toFixed(1)} km/h</strong></div>
-              <div>Battery: <strong>${agent.battery_pct != null ? agent.battery_pct + '%' : 'N/A'}</strong></div>
-            </div>
+      const infoContent = `
+        <div style="color:#111; font-family:sans-serif; min-width:180px; padding:4px;">
+          <h4 style="margin:0 0 4px 0; font-size:14px; font-weight:700;">${escapeHtml(agent.full_name)}</h4>
+          <p style="margin:0 0 6px 0; font-size:12px; color:#555;">Code: <strong>${escapeHtml(agent.employee_code)}</strong></p>
+          <div style="font-size:11px; color:#222; background:#f4f4f4; padding:6px; border-radius:4px; display:flex; flex-direction:column; gap:3px;">
+            <div>Status: <span style="color:#00a86b; font-weight:700;">● LIVE TRANSMITTING</span></div>
+            <div>Speed: <strong>${(agent.speed_kmh || 0).toFixed(1)} km/h</strong></div>
+            <div>Battery: <strong>${agent.battery_pct != null ? agent.battery_pct + '%' : 'N/A'}</strong></div>
           </div>
-        `
-      });
+        </div>
+      `;
 
-      marker.addListener('click', () => {
-        if (activeInfoWindow) activeInfoWindow.close();
-        infoWindow.open(googleMap, marker);
-        activeInfoWindow = infoWindow;
-      });
+      if (googleMarkers[markerKey]) {
+        // Smooth in-place position update without flashing
+        googleMarkers[markerKey].marker.setPosition(pos);
+        googleMarkers[markerKey].infoWindow.setContent(infoContent);
+        googleMarkers[markerKey].pos = pos;
+      } else {
+        const marker = new google.maps.Marker({
+          position: pos,
+          map: googleMap,
+          title: agent.full_name,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 10,
+            fillColor: '#00e5ff',
+            fillOpacity: 1,
+            strokeColor: '#ffffff',
+            strokeWeight: 2
+          }
+        });
 
-      googleMarkers[i] = { marker, pos, infoWindow };
+        const infoWindow = new google.maps.InfoWindow({ content: infoContent });
+
+        marker.addListener('click', () => {
+          if (activeInfoWindow) activeInfoWindow.close();
+          infoWindow.open(googleMap, marker);
+          activeInfoWindow = infoWindow;
+        });
+
+        googleMarkers[markerKey] = { marker, pos, infoWindow };
+      }
     });
 
-    if (onlineAgents.length === 1) {
-      googleMap.setCenter({ lat: onlineAgents[0].lat, lng: onlineAgents[0].lng });
-      googleMap.setZoom(15);
-    } else if (onlineAgents.length > 1) {
-      googleMap.fitBounds(bounds);
+    // Cleanup markers for agents that disconnected
+    Object.keys(googleMarkers).forEach(k => {
+      if (!activeIds.has(k)) {
+        googleMarkers[k].marker.setMap(null);
+        delete googleMarkers[k];
+      }
+    });
+
+    if (!hasInitialFittedBounds && onlineAgents.length > 0) {
+      hasInitialFittedBounds = true;
+      if (onlineAgents.length === 1) {
+        googleMap.setCenter({ lat: onlineAgents[0].lat, lng: onlineAgents[0].lng });
+        googleMap.setZoom(16);
+      } else {
+        googleMap.fitBounds(bounds);
+      }
     }
     return;
   }
 
   // 2. Leaflet Fallback Rendering
   if (leafletMap) {
-    Object.values(leafletMarkers).forEach(m => leafletMap.removeLayer(m.marker));
-    leafletMarkers = {};
-
-    if (onlineAgents.length === 0) return;
-
+    const activeIds = new Set();
     const bounds = [];
+
     onlineAgents.forEach((agent, i) => {
+      const markerKey = agent.id || agent.employee_code || i;
+      activeIds.add(markerKey);
       const lat = agent.lat;
       const lng = agent.lng;
       bounds.push([lat, lng]);
 
-      const customIcon = L.divIcon({
-        className: 'vehicle-marker',
-        html: `
-          <div style="background:var(--accent-cyan); color:#000; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 0 14px var(--accent-cyan); border:2px solid #fff; cursor:pointer;">
-            <i class="fa-solid fa-motorcycle" style="font-size:14px;"></i>
-          </div>
-        `,
-        iconSize: [34, 34],
-        iconAnchor: [17, 17]
-      });
-
-      const marker = L.marker([lat, lng], { icon: customIcon }).addTo(leafletMap);
-      marker.bindPopup(`
+      const popupHtml = `
         <div style="color:#111; font-family:sans-serif; min-width:180px;">
           <h4 style="margin:0 0 4px 0; font-size:14px; font-weight:700;">${escapeHtml(agent.full_name)}</h4>
           <p style="margin:0 0 6px 0; font-size:12px; color:#555;">Code: <strong>${escapeHtml(agent.employee_code)}</strong></p>
@@ -223,20 +228,55 @@ function updateMapMarkers() {
             <div>Battery: <strong>${agent.battery_pct != null ? agent.battery_pct + '%' : 'N/A'}</strong></div>
           </div>
         </div>
-      `);
+      `;
 
-      leafletMarkers[i] = { marker, lat, lng };
+      if (leafletMarkers[markerKey]) {
+        leafletMarkers[markerKey].marker.setLatLng([lat, lng]);
+        leafletMarkers[markerKey].marker.setPopupContent(popupHtml);
+        leafletMarkers[markerKey].lat = lat;
+        leafletMarkers[markerKey].lng = lng;
+      } else {
+        const customIcon = L.divIcon({
+          className: 'vehicle-marker',
+          html: `
+            <div style="background:var(--accent-cyan); color:#000; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 0 14px var(--accent-cyan); border:2px solid #fff; cursor:pointer;">
+              <i class="fa-solid fa-motorcycle" style="font-size:14px;"></i>
+            </div>
+          `,
+          iconSize: [34, 34],
+          iconAnchor: [17, 17]
+        });
+
+        const marker = L.marker([lat, lng], { icon: customIcon }).addTo(leafletMap);
+        marker.bindPopup(popupHtml);
+        leafletMarkers[markerKey] = { marker, lat, lng };
+      }
     });
 
-    if (bounds.length > 0) {
-      leafletMap.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
+    Object.keys(leafletMarkers).forEach(k => {
+      if (!activeIds.has(k)) {
+        leafletMap.removeLayer(leafletMarkers[k].marker);
+        delete leafletMarkers[k];
+      }
+    });
+
+    if (!hasInitialFittedBounds && bounds.length > 0) {
+      hasInitialFittedBounds = true;
+      if (bounds.length === 1) {
+        leafletMap.setView(bounds[0], 16);
+      } else {
+        leafletMap.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
+      }
     }
   }
 }
 
 function focusAgent(idx) {
-  if (isGoogleMapsActive && googleMap && googleMarkers[idx]) {
-    const item = googleMarkers[idx];
+  const agent = assignedAgents[idx];
+  const markerKey = agent ? (agent.id || agent.employee_code || idx) : idx;
+
+  if (isGoogleMapsActive && googleMap && googleMarkers[markerKey]) {
+    const item = googleMarkers[markerKey];
     googleMap.panTo(item.pos);
     googleMap.setZoom(16);
     if (activeInfoWindow) activeInfoWindow.close();
@@ -245,8 +285,8 @@ function focusAgent(idx) {
     return;
   }
 
-  if (leafletMap && leafletMarkers[idx]) {
-    const item = leafletMarkers[idx];
+  if (leafletMap && leafletMarkers[markerKey]) {
+    const item = leafletMarkers[markerKey];
     leafletMap.setView([item.lat, item.lng], 16, { animate: true });
     item.marker.openPopup();
   }
@@ -404,8 +444,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     await loadAssignedFleet();
     await loadManagerReports();
 
-    // Auto-refresh fleet telemetry every 5 seconds
-    setInterval(loadAssignedFleet, 5000);
+    // Instantaneous real-time auto-refresh (1.5 seconds)
+    setInterval(loadAssignedFleet, 1500);
   } catch (e) {
     window.location.href = 'index.html';
   }
