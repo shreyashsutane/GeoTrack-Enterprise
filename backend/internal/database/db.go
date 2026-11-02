@@ -176,12 +176,17 @@ func (db *DB) autoMigrate(ctx context.Context) error {
 	(3, 'FIELD_AGENT', 'Field tracking and expense claim filing')
 	ON CONFLICT (id) DO NOTHING;
 
-	-- Seed Default Users with Argon2id Passwords
+	-- Seed Default Users with Real Argon2id Passwords
 	INSERT INTO users (id, role_id, full_name, email, employee_code, password_hash) VALUES
-	('00000000-0000-0000-0000-000000000001', 1, 'System Administrator', 'admin@geotrack.com', 'ADM-001', '$argon2id$v=19$m=65536,t=3,p=4$0123456789abcdef$YJd03Jt2n9xWJkK7QY4E0Y3a6eP9f+7w9j8t5d7s9a4'),
-	('00000000-0000-0000-0000-000000000002', 2, 'Vikram Deshmukh', 'vikram.manager@geotrack.com', 'MGR-042', '$argon2id$v=19$m=65536,t=3,p=4$0123456789abcdef$YJd03Jt2n9xWJkK7QY4E0Y3a6eP9f+7w9j8t5d7s9a4'),
-	('00000000-0000-0000-0000-000000000003', 3, 'Rahul Sharma', 'rahul.sharma@geotrack.com', 'EMP-104', '$argon2id$v=19$m=65536,t=3,p=4$0123456789abcdef$YJd03Jt2n9xWJkK7QY4E0Y3a6eP9f+7w9j8t5d7s9a4')
-	ON CONFLICT (id) DO NOTHING;
+	('00000000-0000-0000-0000-000000000001', 1, 'System Administrator', 'admin@geotrack.com', 'ADM-001', '$argon2id$v=19$m=65536,t=3,p=4$Ljsw7Fo775UXrQdtM7+FUg$3T/0AgAaAO101crlH/bYP14Sb/h7sWXB4ZKuo3miXEo'),
+	('00000000-0000-0000-0000-000000000002', 2, 'Vikram Deshmukh', 'vikram.manager@geotrack.com', 'MGR-042', '$argon2id$v=19$m=65536,t=3,p=4$otZE7kq3Nz49OKI1TMUKBQ$ABxRmQf6Sn5NGx18LE8YGXVDSeeTuepph+rdT2Q3D7w'),
+	('00000000-0000-0000-0000-000000000003', 3, 'Rahul Sharma', 'rahul.sharma@geotrack.com', 'EMP-104', '$argon2id$v=19$m=65536,t=3,p=4$rdRv7qQMZJYafiAfLZo+Mg$Ot+2n6fSZcRI5xleoZushAG/RoA7I3m5//cvqLGSRfU')
+	ON CONFLICT (id) DO UPDATE SET 
+		password_hash = EXCLUDED.password_hash,
+		full_name = EXCLUDED.full_name,
+		email = EXCLUDED.email,
+		employee_code = EXCLUDED.employee_code,
+		role_id = EXCLUDED.role_id;
 
 	-- Seed Device
 	INSERT INTO devices (id, hardware_device_id, assigned_user_id, vehicle_registration) VALUES
