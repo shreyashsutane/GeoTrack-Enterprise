@@ -69,6 +69,14 @@ const api = {
     localStorage.removeItem('geotrack_user');
   },
 
+  async logout() {
+    try {
+      await this.request('/api/v1/auth/logout', { method: 'POST' });
+    } catch (e) {}
+    this.clearSession();
+    window.location.href = 'index.html';
+  },
+
   async getPublicConfig() {
     try {
       const res = await this.request('/api/v1/config');

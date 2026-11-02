@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,15 +17,33 @@ import (
 	"geotrack-backend/internal/repository"
 )
 
+type LiveTelemetry struct {
+	DeviceID   string    `json:"device_id"`
+	AgentID    string    `json:"agent_id"`
+	AgentName  string    `json:"agent_name"`
+	Lat        float64   `json:"lat"`
+	Lng        float64   `json:"lng"`
+	SpeedKmh   float64   `json:"speed_kmh"`
+	Bearing    float64   `json:"bearing"`
+	Altitude   float64   `json:"altitude"`
+	Accuracy   float64   `json:"accuracy"`
+	BatteryPct int       `json:"battery_pct"`
+	IsCharging bool      `json:"is_charging"`
+	LastSeenAt time.Time `json:"last_seen_at"`
+}
+
 type Handler struct {
-	store     repository.Store
-	jwtSecret string
+	store         repository.Store
+	jwtSecret     string
+	telemetryMu   sync.RWMutex
+	liveTelemetry map[string]*LiveTelemetry
 }
 
 func NewHandler(store repository.Store, jwtSecret string) *Handler {
 	return &Handler{
-		store:     store,
-		jwtSecret: jwtSecret,
+		store:         store,
+		jwtSecret:     jwtSecret,
+		liveTelemetry: make(map[string]*LiveTelemetry),
 	}
 }
 
@@ -331,7 +350,51 @@ func (h *Handler) GetManagerAssets(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to fetch assigned assets")
 		return
 	}
-	writeJSON(w, http.StatusOK, agents)
+
+	type AssetWithTelemetry struct {
+		*models.User
+		IsOnline   bool       `json:"is_online"`
+		LastSeenAt *time.Time `json:"last_seen_at,omitempty"`
+		Lat        *float64   `json:"lat,omitempty"`
+		Lng        *float64   `json:"lng,omitempty"`
+		SpeedKmh   *float64   `json:"speed_kmh,omitempty"`
+		BatteryPct *int       `json:"battery_pct,omitempty"`
+		IsCharging bool       `json:"is_charging"`
+	}
+
+	h.telemetryMu.RLock()
+	defer h.telemetryMu.RUnlock()
+
+	result := make([]*AssetWithTelemetry, 0, len(agents))
+	now := time.Now().UTC()
+
+	for _, agent := range agents {
+		item := &AssetWithTelemetry{
+			User:     agent,
+			IsOnline: false,
+		}
+
+		var matchedTelemetry *LiveTelemetry
+		if t, ok := h.liveTelemetry[agent.ID.String()]; ok && t != nil {
+			matchedTelemetry = t
+		} else if t, ok := h.liveTelemetry[agent.EmployeeCode]; ok && t != nil {
+			matchedTelemetry = t
+		}
+
+		if matchedTelemetry != nil && now.Sub(matchedTelemetry.LastSeenAt) <= 2*time.Minute {
+			item.IsOnline = true
+			item.LastSeenAt = &matchedTelemetry.LastSeenAt
+			item.Lat = &matchedTelemetry.Lat
+			item.Lng = &matchedTelemetry.Lng
+			item.SpeedKmh = &matchedTelemetry.SpeedKmh
+			item.BatteryPct = &matchedTelemetry.BatteryPct
+			item.IsCharging = matchedTelemetry.IsCharging
+		}
+
+		result = append(result, item)
+	}
+
+	writeJSON(w, http.StatusOK, result)
 }
 
 // ==============================================================================
@@ -485,7 +548,61 @@ func (h *Handler) ExportReportsCSV(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Telematics Ingestion Stub for Android Client
+// Telematics Ingestion from Android Client
 func (h *Handler) PingTelematics(w http.ResponseWriter, r *http.Request) {
+	var payload struct {
+		DeviceID   string  `json:"deviceId"`
+		AgentName  string  `json:"agentName"`
+		Lat        float64 `json:"lat"`
+		Lng        float64 `json:"lng"`
+		SpeedKmh   float64 `json:"speedKmh"`
+		Bearing    float64 `json:"bearing"`
+		Altitude   float64 `json:"altitude"`
+		Accuracy   float64 `json:"accuracy"`
+		BatteryPct int     `json:"batteryPct"`
+		IsCharging bool    `json:"isCharging"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid telemetry payload")
+		return
+	}
+
+	var agentKey string
+	authHeader := r.Header.Get("Authorization")
+	if strings.HasPrefix(authHeader, "Bearer ") {
+		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+		claims, err := auth.ValidateToken(tokenStr, h.jwtSecret)
+		if err == nil && claims != nil {
+			agentKey = claims.UserID
+		}
+	}
+	if agentKey == "" {
+		agentKey = payload.DeviceID
+	}
+
+	h.telemetryMu.Lock()
+	if h.liveTelemetry == nil {
+		h.liveTelemetry = make(map[string]*LiveTelemetry)
+	}
+	t := &LiveTelemetry{
+		DeviceID:   payload.DeviceID,
+		AgentID:    agentKey,
+		AgentName:  payload.AgentName,
+		Lat:        payload.Lat,
+		Lng:        payload.Lng,
+		SpeedKmh:   payload.SpeedKmh,
+		Bearing:    payload.Bearing,
+		Altitude:   payload.Altitude,
+		Accuracy:   payload.Accuracy,
+		BatteryPct: payload.BatteryPct,
+		IsCharging: payload.IsCharging,
+		LastSeenAt: time.Now().UTC(),
+	}
+	h.liveTelemetry[agentKey] = t
+	if payload.DeviceID != "" {
+		h.liveTelemetry[payload.DeviceID] = t
+	}
+	h.telemetryMu.Unlock()
+
 	writeJSON(w, http.StatusAccepted, map[string]string{"status": "telemetry_received"})
 }
