@@ -1,6 +1,6 @@
 /**
  * GeoTrack Enterprise - Branch Manager Dashboard Controller
- * Enforces 5-10 asset supervisory boundary and report approval workflows
+ * Enforces 5-10 asset supervisory boundary and live telemetry tracking
  */
 
 let assignedAgents = [];
@@ -8,50 +8,63 @@ let managerReports = [];
 let map = null;
 let agentMarkers = {};
 
-function initMap() {
+function logout() {
+  api.clearSession();
+  window.location.href = 'index.html';
+}
+window.logout = logout;
+
+function initMap(apiKey = '') {
   if (map || !window.L) return;
 
-  // 1. ESRI World Dark Gray Canvas (100% Free, Zero API Key Required, Zero Watermarks)
+  const googleKey = apiKey || localStorage.getItem('geotrack_google_maps_key') || '';
+
+  // 1. Google Maps Streets Layer (High-Performance Vector Tile Servers)
+  const googleStreets = googleKey ? L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&key=' + encodeURIComponent(googleKey), {
+    attribution: '&copy; Google Maps',
+    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+    maxZoom: 20
+  }) : null;
+
+  // 2. Google Maps Satellite / Hybrid Layer
+  const googleSatellite = googleKey ? L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&key=' + encodeURIComponent(googleKey), {
+    attribution: '&copy; Google Maps Satellite',
+    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+    maxZoom: 20
+  }) : null;
+
+  // 3. ESRI Dark Gray Canvas (Clean Dark Fleet Baseline)
   const esriDark = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
     attribution: '&copy; Esri &copy; OpenStreetMap contributors',
     maxZoom: 16
   });
 
-  // 2. OpenStreetMap Standard (100% Free, Zero API Key Required, Zero Watermarks)
+  // 4. OpenStreetMap Standard
   const osmLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors',
     maxZoom: 19
   });
 
-  // 3. Optional Google Maps (Reads strictly from user browser localStorage, zero exposed secret keys in git)
-  const customGoogleKey = localStorage.getItem('geotrack_google_maps_key') || '';
-  const googleStreets = customGoogleKey ? L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&key=' + encodeURIComponent(customGoogleKey), {
-    attribution: '&copy; Google Maps',
-    maxZoom: 20
-  }) : null;
+  // Default active layer: Google Maps Streets (if key configured) or ESRI Dark
+  const defaultLayer = googleStreets || esriDark;
 
-  const googleSatellite = customGoogleKey ? L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&key=' + encodeURIComponent(customGoogleKey), {
-    attribution: '&copy; Google Maps Satellite',
-    maxZoom: 20
-  }) : null;
-
-  // Initialize map with ESRI Dark as default (completely clean, dark, no watermark)
+  // Pune / Mumbai metropolitan hub default coordinates
   map = L.map('map', { 
     zoomControl: false,
-    layers: [esriDark]
+    layers: [defaultLayer]
   }).setView([18.5204, 73.8567], 13);
 
   L.control.zoom({ position: 'bottomright' }).addTo(map);
 
   // Map layer controls
-  const baseMaps = {
-    "🌙 Dark Fleet (Default)": esriDark,
-    "🌍 OpenStreetMap": osmLayer
-  };
+  const baseMaps = {};
   if (googleStreets) {
-    baseMaps["🗺️ Google Maps Streets"] = googleStreets;
+    baseMaps["🗺️ Google Maps Streets (Default)"] = googleStreets;
     baseMaps["🛰️ Google Maps Satellite"] = googleSatellite;
   }
+  baseMaps["🌙 Dark Fleet"] = esriDark;
+  baseMaps["🌍 OpenStreetMap"] = osmLayer;
+
   L.control.layers(baseMaps, null, { position: 'topright' }).addTo(map);
 }
 
@@ -63,13 +76,13 @@ function updateMapMarkers() {
 
   if (!assignedAgents || assignedAgents.length === 0) return;
 
-  const baseLat = 18.5204;
-  const baseLng = 73.8567;
   const bounds = [];
+  const onlineAgents = assignedAgents.filter(a => a.is_online === true && a.lat != null && a.lng != null);
+  document.getElementById('fleetCountBadge').textContent = `${onlineAgents.length} Online / ${assignedAgents.length} Total`;
 
-  assignedAgents.forEach((agent, i) => {
-    const lat = baseLat + (Math.sin(i * 1.7) * 0.035);
-    const lng = baseLng + (Math.cos(i * 1.7) * 0.035);
+  onlineAgents.forEach((agent, i) => {
+    const lat = agent.lat;
+    const lng = agent.lng;
     bounds.push([lat, lng]);
 
     const customIcon = L.divIcon({
@@ -89,9 +102,9 @@ function updateMapMarkers() {
         <h4 style="margin:0 0 4px 0; font-size:14px; font-weight:700;">${escapeHtml(agent.full_name)}</h4>
         <p style="margin:0 0 6px 0; font-size:12px; color:#555;">Code: <strong>${escapeHtml(agent.employee_code)}</strong></p>
         <div style="font-size:11px; color:#222; background:#f4f4f4; padding:6px; border-radius:4px; display:flex; flex-direction:column; gap:3px;">
-          <div>Status: <span style="color:#00a86b; font-weight:700;">LIVE TRACKING</span></div>
-          <div>Speed: <strong>38 km/h</strong></div>
-          <div>Battery: <strong>88%</strong></div>
+          <div>Status: <span style="color:#00a86b; font-weight:700;">● LIVE TRANSMITTING</span></div>
+          <div>Speed: <strong>${(agent.speed_kmh || 0).toFixed(1)} km/h</strong></div>
+          <div>Battery: <strong>${agent.battery_pct != null ? agent.battery_pct + '%' : 'N/A'}</strong></div>
         </div>
       </div>
     `);
@@ -100,7 +113,7 @@ function updateMapMarkers() {
   });
 
   if (bounds.length > 0) {
-    map.fitBounds(bounds, { padding: [50, 50] });
+    map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
   }
 }
 
@@ -130,11 +143,11 @@ function toggleReportsModal() {
 
 async function loadAssignedFleet() {
   const listContainer = document.getElementById('fleetList');
-  listContainer.innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-secondary); font-size:0.85rem;"><i class="fa-solid fa-circle-notch fa-spin"></i> Fetching assigned fleet...</div>`;
 
   try {
     assignedAgents = await api.getManagerAssets();
-    document.getElementById('fleetCountBadge').textContent = `${assignedAgents.length} Assigned`;
+    const onlineCount = (assignedAgents || []).filter(a => a.is_online === true).length;
+    document.getElementById('fleetCountBadge').textContent = `${onlineCount} Online / ${assignedAgents.length} Total`;
     updateMapMarkers();
 
     if (assignedAgents.length === 0) {
@@ -148,16 +161,25 @@ async function loadAssignedFleet() {
     }
 
     listContainer.innerHTML = assignedAgents.map((agent, idx) => {
+      const isOnline = agent.is_online === true;
+      const statusBadge = isOnline 
+        ? `<span class="badge badge-approved" style="font-size:0.68rem;"><i class="fa-solid fa-circle fa-beat" style="font-size:7px; color:var(--accent-green); margin-right:4px;"></i> LIVE</span>`
+        : `<span class="badge" style="font-size:0.68rem; background:rgba(255,255,255,0.06); color:var(--text-muted); border:1px solid var(--border-color);">OFFLINE</span>`;
+
+      const telemetrySub = isOnline
+        ? `<span><i class="fa-solid fa-battery-three-quarters" style="color:var(--accent-green);"></i> ${agent.battery_pct != null ? agent.battery_pct + '%' : '--'}</span>
+           <span><i class="fa-solid fa-gauge" style="color:var(--accent-orange);"></i> ${(agent.speed_kmh || 0).toFixed(0)} km/h</span>`
+        : `<span><i class="fa-solid fa-mobile-screen" style="color:var(--text-muted);"></i> Mobile App Not Connected</span>`;
+
       return `
         <div style="background:var(--bg-surface-elevated); border:1px solid var(--border-color); border-radius:10px; padding:12px; transition:border-color 0.2s; cursor:pointer;" onclick="focusAgent(${idx})">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
             <span style="font-weight:700; color:var(--text-main); font-size:0.92rem;">${escapeHtml(agent.full_name)}</span>
-            <span class="badge badge-approved" style="font-size:0.68rem;">ONLINE</span>
+            ${statusBadge}
           </div>
           <div style="display:flex; justify-content:space-between; font-size:0.78rem; color:var(--text-secondary);">
             <span><i class="fa-solid fa-id-badge" style="color:var(--accent-cyan);"></i> ${agent.employee_code}</span>
-            <span><i class="fa-solid fa-battery-three-quarters" style="color:var(--accent-green);"></i> 88%</span>
-            <span><i class="fa-solid fa-gauge" style="color:var(--accent-orange);"></i> 38 km/h</span>
+            ${telemetrySub}
           </div>
         </div>
       `;
@@ -170,7 +192,6 @@ async function loadAssignedFleet() {
 
 async function loadManagerReports() {
   const tbody = document.getElementById('reportsTableBody');
-  tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:30px; color:var(--text-secondary);"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading reports...</td></tr>`;
 
   try {
     managerReports = await api.listManagerReports();
@@ -241,7 +262,7 @@ function escapeHtml(str) {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-// Auth Guard Check
+// Auth Guard & Dynamic Auto-Refresh
 window.addEventListener('DOMContentLoaded', async () => {
   try {
     const user = await api.getCurrentUser();
@@ -251,10 +272,13 @@ window.addEventListener('DOMContentLoaded', async () => {
       return;
     }
     document.getElementById('navUserName').textContent = user.full_name;
-    await api.getPublicConfig();
-    initMap();
+    const cfg = await api.getPublicConfig();
+    initMap(cfg ? cfg.google_maps_key : '');
     await loadAssignedFleet();
     await loadManagerReports();
+
+    // Auto-refresh fleet telemetry every 5 seconds
+    setInterval(loadAssignedFleet, 5000);
   } catch (e) {
     window.location.href = 'index.html';
   }
