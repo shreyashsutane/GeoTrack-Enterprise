@@ -380,5 +380,12 @@ const api = {
 
   async listMyReports() {
     return this.request('/api/v1/reports/my');
+  },
+
+  async sendTelemetry(telemetry) {
+    return this.request('/api/v1/telematics/ping', {
+      method: 'POST',
+      body: JSON.stringify(telemetry),
+    });
   }
 };

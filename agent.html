@@ -99,21 +99,37 @@
       <!-- Live Shift Status Card -->
       <div class="card-table" style="padding:24px; margin-bottom:0; display:flex; flex-direction:column; justify-content:space-between;">
         <div>
-          <h3 style="font-size:1.1rem; font-weight:700; margin-bottom:12px;"><i class="fa-solid fa-shield-halved" style="color:var(--accent-green);"></i> Shift Telematics Guidelines</h3>
-          <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:14px;">
-            1. All daily travel claims are mathematically audited against GPS Kalman telemetry timestamps.
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h3 style="font-size:1.1rem; font-weight:700;"><i class="fa-solid fa-satellite-dish" style="color:var(--accent-cyan); margin-right:8px;"></i> Shift GPS Transceiver</h3>
+            <span id="shiftStatusBadge" class="badge" style="background:rgba(255,255,255,0.06); color:var(--text-muted); border:1px solid var(--border-color);">OFFLINE</span>
+          </div>
+          <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:16px;">
+            Broadcast live telemetry to your Branch Manager's Google Maps dashboard. Or install the Android APK for background tracking.
           </p>
-          <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:14px;">
-            2. Claims are instantly forwarded to your assigned Branch Manager's review dashboard.
-          </p>
-          <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:14px;">
-            3. Once approved by management, reimbursements are scheduled for monthly payroll disbursement.
-          </p>
+
+          <div style="background:var(--bg-dark); border:1px solid var(--border-color); border-radius:10px; padding:14px; margin-bottom:16px;">
+            <div style="display:flex; justify-content:space-between; font-size:0.82rem; margin-bottom:6px;">
+              <span style="color:var(--text-secondary);">Coordinates:</span>
+              <span id="telemetryCoords" style="color:var(--text-main); font-family:monospace;">--</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:0.82rem; margin-bottom:6px;">
+              <span style="color:var(--text-secondary);">Speed:</span>
+              <span id="telemetrySpeed" style="color:var(--accent-orange); font-weight:700;">0 km/h</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:0.82rem; margin-bottom:6px;">
+              <span style="color:var(--text-secondary);">Last Transmitted:</span>
+              <span id="telemetryLastPing" style="color:var(--text-secondary);">Never</span>
+            </div>
+          </div>
         </div>
 
-        <div style="background:var(--bg-surface-elevated); padding:16px; border-radius:10px; border:1px solid var(--border-color);">
-          <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Account Standing</div>
-          <div style="font-size:1.2rem; font-weight:700; color:var(--accent-cyan); margin-top:4px;"><i class="fa-solid fa-circle-check"></i> Standard Field Duty (Active)</div>
+        <div>
+          <button id="btnToggleShift" class="btn btn-primary" style="width:100%; justify-content:center; padding:12px; font-weight:700; font-size:0.95rem;" onclick="toggleWebShift()">
+            <i class="fa-solid fa-location-dot"></i> Start Shift & Broadcast GPS
+          </button>
+          <div style="text-align:center; font-size:0.75rem; color:var(--text-muted); margin-top:8px;">
+            <i class="fa-solid fa-shield-halved" style="color:var(--accent-green);"></i> Shift telemetry streamed every 2 seconds
+          </div>
         </div>
       </div>
     </div>
@@ -152,6 +168,111 @@
   <script src="js/api.js"></script>
   <script>
     const fuelRate = 105.0;
+
+    let isWebShiftActive = false;
+    let watchId = null;
+    let pingIntervalId = null;
+    let latestLat = 18.5204;
+    let latestLng = 73.8567;
+    let latestSpeed = 0;
+
+    async function toggleWebShift() {
+      const btn = document.getElementById('btnToggleShift');
+      const badge = document.getElementById('shiftStatusBadge');
+
+      if (!isWebShiftActive) {
+        if (!navigator.geolocation) {
+          alert('Geolocation is not supported by your browser.');
+          return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Acquiring GPS...';
+
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
+            isWebShiftActive = true;
+            btn.disabled = false;
+            btn.className = 'btn btn-danger';
+            btn.style.width = '100%';
+            btn.style.justifyContent = 'center';
+            btn.style.padding = '12px';
+            btn.style.fontWeight = '700';
+            btn.innerHTML = '<i class="fa-solid fa-stop"></i> Stop Active Shift';
+
+            badge.className = 'badge badge-approved';
+            badge.innerHTML = '<i class="fa-solid fa-circle fa-beat" style="font-size:7px; color:var(--accent-green); margin-right:4px;"></i> LIVE ONLINE';
+
+            latestLat = pos.coords.latitude;
+            latestLng = pos.coords.longitude;
+            latestSpeed = (pos.coords.speed || 0) * 3.6;
+
+            updateTelemetryDisplay();
+            await broadcastPing();
+
+            // Watch continuous movement
+            watchId = navigator.geolocation.watchPosition((p) => {
+              latestLat = p.coords.latitude;
+              latestLng = p.coords.longitude;
+              latestSpeed = (p.coords.speed || 0) * 3.6;
+              updateTelemetryDisplay();
+            }, (err) => console.warn(err), { enableHighAccuracy: true });
+
+            // Stream pings every 2 seconds
+            pingIntervalId = setInterval(broadcastPing, 2000);
+          },
+          (err) => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-location-dot"></i> Start Shift & Broadcast GPS';
+            alert('Location access was denied or timed out. Please allow location access in your browser.');
+          },
+          { enableHighAccuracy: true, timeout: 10000 }
+        );
+      } else {
+        isWebShiftActive = false;
+        if (watchId != null) navigator.geolocation.clearWatch(watchId);
+        if (pingIntervalId != null) clearInterval(pingIntervalId);
+        watchId = null;
+        pingIntervalId = null;
+
+        btn.className = 'btn btn-primary';
+        btn.style.width = '100%';
+        btn.style.justifyContent = 'center';
+        btn.style.padding = '12px';
+        btn.style.fontWeight = '700';
+        btn.innerHTML = '<i class="fa-solid fa-location-dot"></i> Start Shift & Broadcast GPS';
+
+        badge.className = 'badge';
+        badge.style = 'background:rgba(255,255,255,0.06); color:var(--text-muted); border:1px solid var(--border-color);';
+        badge.textContent = 'OFFLINE';
+      }
+    }
+
+    function updateTelemetryDisplay() {
+      document.getElementById('telemetryCoords').textContent = `${latestLat.toFixed(5)}, ${latestLng.toFixed(5)}`;
+      document.getElementById('telemetrySpeed').textContent = `${latestSpeed.toFixed(1)} km/h`;
+    }
+
+    async function broadcastPing() {
+      try {
+        const u = api.getUser();
+        await api.sendTelemetry({
+          deviceId: 'web-browser-' + (u ? u.employee_code : 'EMP-104'),
+          agentName: u ? u.full_name : 'Rahul Sharma',
+          lat: latestLat,
+          lng: latestLng,
+          speedKmh: latestSpeed,
+          bearing: 0,
+          altitude: 0,
+          accuracy: 10,
+          batteryPct: 90,
+          isCharging: true
+        });
+        document.getElementById('telemetryLastPing').textContent = new Date().toLocaleTimeString();
+      } catch (e) {
+        console.warn('Telemetry ping error:', e);
+      }
+    }
 
     function logout() {
       api.clearSession();
