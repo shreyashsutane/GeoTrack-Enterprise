@@ -211,31 +211,39 @@ func (db *DB) autoMigrate(ctx context.Context) error {
 				INSERT INTO users (id, role_id, full_name, email, employee_code, password_hash, status)
 				VALUES ('00000000-0000-0000-0000-000000000003', 3, 'Rahul Sharma', 'rahul.sharma@geotrack.com', 'EMP-104', '$argon2id$v=19$m=65536,t=3,p=4$rdRv7qQMZJYafiAfLZo+Mg$Ot+2n6fSZcRI5xleoZushAG/RoA7I3m5//cvqLGSRfU', 'ACTIVE');
 			END IF;
+
+			-- Additional 5 Field Agents (EMP-105 to EMP-109)
+			INSERT INTO users (id, role_id, full_name, email, employee_code, password_hash, status)
+			VALUES 
+				('00000000-0000-0000-0000-000000000105', 3, 'Amit Patel', 'amit.patel@geotrack.com', 'EMP-105', '$argon2id$v=19$m=65536,t=3,p=4$rdRv7qQMZJYafiAfLZo+Mg$Ot+2n6fSZcRI5xleoZushAG/RoA7I3m5//cvqLGSRfU', 'ACTIVE'),
+				('00000000-0000-0000-0000-000000000106', 3, 'Priya Nair', 'priya.nair@geotrack.com', 'EMP-106', '$argon2id$v=19$m=65536,t=3,p=4$rdRv7qQMZJYafiAfLZo+Mg$Ot+2n6fSZcRI5xleoZushAG/RoA7I3m5//cvqLGSRfU', 'ACTIVE'),
+				('00000000-0000-0000-0000-000000000107', 3, 'Sneha Kulkarni', 'sneha.kulkarni@geotrack.com', 'EMP-107', '$argon2id$v=19$m=65536,t=3,p=4$rdRv7qQMZJYafiAfLZo+Mg$Ot+2n6fSZcRI5xleoZushAG/RoA7I3m5//cvqLGSRfU', 'ACTIVE'),
+				('00000000-0000-0000-0000-000000000108', 3, 'Arjun Verma', 'arjun.verma@geotrack.com', 'EMP-108', '$argon2id$v=19$m=65536,t=3,p=4$rdRv7qQMZJYafiAfLZo+Mg$Ot+2n6fSZcRI5xleoZushAG/RoA7I3m5//cvqLGSRfU', 'ACTIVE'),
+				('00000000-0000-0000-0000-000000000109', 3, 'Rohan Joshi', 'rohan.joshi@geotrack.com', 'EMP-109', '$argon2id$v=19$m=65536,t=3,p=4$rdRv7qQMZJYafiAfLZo+Mg$Ot+2n6fSZcRI5xleoZushAG/RoA7I3m5//cvqLGSRfU', 'ACTIVE')
+			ON CONFLICT (employee_code) DO NOTHING;
 		END $$;`,
 		`DO $$ 
 		DECLARE
 			mgr_id UUID;
-			agent_id UUID;
+			agent_rec RECORD;
 			dev_id UUID;
 		BEGIN
 			SELECT id INTO mgr_id FROM users WHERE employee_code = 'MGR-042' LIMIT 1;
-			SELECT id INTO agent_id FROM users WHERE employee_code = 'EMP-104' LIMIT 1;
 			
-			IF agent_id IS NOT NULL THEN
-				SELECT id INTO dev_id FROM devices WHERE assigned_user_id = agent_id LIMIT 1;
+			FOR agent_rec IN SELECT id, employee_code FROM users WHERE role_id = 3 LOOP
+				SELECT id INTO dev_id FROM devices WHERE assigned_user_id = agent_rec.id LIMIT 1;
 				IF dev_id IS NULL THEN
-					INSERT INTO devices (id, hardware_device_id, assigned_user_id, vehicle_registration)
-					VALUES ('00000000-0000-0000-0000-000000000010', 'HW-DEV-001', agent_id, 'MH-02-CB-8842')
-					ON CONFLICT DO NOTHING
+					INSERT INTO devices (hardware_device_id, assigned_user_id, vehicle_registration)
+					VALUES ('HW-' || agent_rec.employee_code, agent_rec.id, 'MH-12-' || agent_rec.employee_code)
 					RETURNING id INTO dev_id;
 				END IF;
 
 				IF mgr_id IS NOT NULL AND dev_id IS NOT NULL THEN
 					INSERT INTO user_asset_assignments (manager_id, agent_id, device_id)
-					VALUES (mgr_id, agent_id, dev_id)
+					VALUES (mgr_id, agent_rec.id, dev_id)
 					ON CONFLICT (manager_id, agent_id) DO NOTHING;
 				END IF;
-			END IF;
+			END LOOP;
 		END $$;`,
 	}
 

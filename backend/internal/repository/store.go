@@ -114,8 +114,40 @@ func NewInMemoryStore() *InMemoryStore {
 		UpdatedAt:    time.Now(),
 	}
 
-	// Assign Agent to Manager
-	store.assignments[mgrID] = []uuid.UUID{agentID}
+	// Additional Field Agents assigned to MGR-042 (EMP-105 to EMP-109)
+	fieldAgents := []struct {
+		ID   string
+		Code string
+		Name string
+		Mail string
+	}{
+		{"00000000-0000-0000-0000-000000000105", "EMP-105", "Amit Patel", "amit.patel@geotrack.com"},
+		{"00000000-0000-0000-0000-000000000106", "EMP-106", "Priya Nair", "priya.nair@geotrack.com"},
+		{"00000000-0000-0000-0000-000000000107", "EMP-107", "Sneha Kulkarni", "sneha.kulkarni@geotrack.com"},
+		{"00000000-0000-0000-0000-000000000108", "EMP-108", "Arjun Verma", "arjun.verma@geotrack.com"},
+		{"00000000-0000-0000-0000-000000000109", "EMP-109", "Rohan Joshi", "rohan.joshi@geotrack.com"},
+	}
+
+	mgrAgents := []uuid.UUID{agentID}
+	for _, fa := range fieldAgents {
+		uid := uuid.MustParse(fa.ID)
+		store.users[uid] = &models.User{
+			ID:           uid,
+			RoleID:       3,
+			RoleName:     models.RoleFieldAgent,
+			FullName:     fa.Name,
+			Email:        fa.Mail,
+			EmployeeCode: fa.Code,
+			PasswordHash: agentHash,
+			Status:       "ACTIVE",
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		}
+		mgrAgents = append(mgrAgents, uid)
+	}
+
+	// Assign Agents to Manager MGR-042
+	store.assignments[mgrID] = mgrAgents
 
 	// Seed a sample report
 	repID := uuid.MustParse("00000000-0000-0000-0000-000000000010")
