@@ -88,6 +88,63 @@ const RAHUL_SHARMA_PUNE_ROUTE = [
   { lat: 18.5018, lng: 73.8580, time: "04:25 PM", speed: 0, road: "Swargate Hub Return", stop: "Shift Closed • Fuel Claim Submitted" }
 ];
 
+// Date-Indexed Historical Routes for Rahul Sharma (EMP-104)
+const RAHUL_SHARMA_ROUTES_BY_DATE = {
+  '2026-11-22': {
+    title: "Pune Urban Delivery Circuit (FC Road & Kothrud)",
+    distance: "42.8 km",
+    movingTime: "2h 45m",
+    idleTime: "45m",
+    fuelAmount: "₹ 128.40",
+    status: "LOGGED",
+    waypoints: RAHUL_SHARMA_PUNE_ROUTE
+  },
+  '2026-11-21': {
+    title: "East Pune Tech Corridor (Camp & Viman Nagar)",
+    distance: "54.2 km",
+    movingTime: "3h 20m",
+    idleTime: "55m",
+    fuelAmount: "₹ 162.60",
+    status: "APPROVED",
+    waypoints: [
+      { lat: 18.5018, lng: 73.8580, time: "09:15 AM", speed: 0, road: "Swargate Hub (Shift Start)", stop: "Shift Started" },
+      { lat: 18.5085, lng: 73.8680, time: "09:30 AM", speed: 32, road: "Shankarsheth Road" },
+      { lat: 18.5140, lng: 73.8760, time: "09:50 AM", speed: 28, road: "Camp / MG Road Hub", stop: "Delivery #1: Commercial Parcel Drop" },
+      { lat: 18.5140, lng: 73.8760, time: "10:10 AM", speed: 0, road: "MG Road Customer Bay", stop: "Completed (20 mins)" },
+      { lat: 18.5240, lng: 73.8880, time: "10:35 AM", speed: 36, road: "Koregaon Park North Main Road" },
+      { lat: 18.5360, lng: 73.8990, time: "11:05 AM", speed: 42, road: "Kalyani Nagar Bridge" },
+      { lat: 18.5580, lng: 73.9140, time: "11:45 AM", speed: 0, road: "Viman Nagar / Phoenix Marketcity", stop: "Delivery #2: Retail Consignment" },
+      { lat: 18.5580, lng: 73.9140, time: "12:15 PM", speed: 0, road: "Phoenix Loading Dock", stop: "Completed (30 mins)" },
+      { lat: 18.5510, lng: 73.8920, time: "01:00 PM", speed: 38, road: "Yerawada Golf Club Road" },
+      { lat: 18.5280, lng: 73.8750, time: "02:15 PM", speed: 34, road: "Pune Railway Station Junction" },
+      { lat: 18.5110, lng: 73.8640, time: "03:40 PM", speed: 26, road: "Timber Market Road" },
+      { lat: 18.5018, lng: 73.8580, time: "04:45 PM", speed: 0, road: "Swargate Hub Return", stop: "Shift Concluded • Approved" }
+    ]
+  },
+  '2026-11-20': {
+    title: "North-West Logistics Track (Aundh & Hinjewadi)",
+    distance: "48.5 km",
+    movingTime: "3h 05m",
+    idleTime: "40m",
+    fuelAmount: "₹ 145.50",
+    status: "APPROVED",
+    waypoints: [
+      { lat: 18.5018, lng: 73.8580, time: "09:00 AM", speed: 0, road: "Swargate Hub (Shift Start)", stop: "Shift Started" },
+      { lat: 18.5314, lng: 73.8446, time: "09:40 AM", speed: 35, road: "Shivajinagar" },
+      { lat: 18.5600, lng: 73.8050, time: "10:20 AM", speed: 44, road: "Aundh Parihar Chowk", stop: "Delivery #1: Express Package" },
+      { lat: 18.5600, lng: 73.8050, time: "10:40 AM", speed: 0, road: "Aundh Distribution Bay", stop: "Completed (20 mins)" },
+      { lat: 18.5590, lng: 73.7800, time: "11:15 AM", speed: 48, road: "Baner Road Expressway" },
+      { lat: 18.5910, lng: 73.7380, time: "12:00 PM", speed: 0, road: "Hinjewadi Phase 1 Tech Hub", stop: "Delivery #2: IT Hardware Supply" },
+      { lat: 18.5910, lng: 73.7380, time: "12:35 PM", speed: 0, road: "Hinjewadi Phase 1 Gate 2", stop: "Completed (35 mins)" },
+      { lat: 18.5980, lng: 73.7650, time: "01:30 PM", speed: 42, road: "Wakad Chowk" },
+      { lat: 18.5410, lng: 73.7920, time: "02:45 PM", speed: 36, road: "Pashan Circle" },
+      { lat: 18.5018, lng: 73.8580, time: "04:15 PM", speed: 0, road: "Swargate Hub Return", stop: "Shift Closed" }
+    ]
+  }
+};
+
+let currentSelectedDate = '2026-11-22';
+
 function logout() {
   api.clearSession();
   window.location.href = 'index.html';
@@ -238,10 +295,14 @@ function exitToFleetView() {
 }
 window.exitToFleetView = exitToFleetView;
 
-function selectAgent(idx, initialSubView = 'LIVE') {
+function selectAgent(idx, initialSubView = null) {
   if (idx < 0 || idx >= assignedAgents.length) return;
   selectedAgentIndex = idx;
   selectedAgent = assignedAgents[idx];
+
+  const isOnline = selectedAgent.is_online === true;
+  // If agent is offline, default to TIMELINE so historical review is immediate
+  const targetSubView = initialSubView || (isOnline ? 'LIVE' : 'TIMELINE');
 
   // Update Agent Detail Header Profile
   document.getElementById('selectedAgentName').textContent = selectedAgent.full_name;
@@ -249,7 +310,7 @@ function selectAgent(idx, initialSubView = 'LIVE') {
   document.getElementById('selectedAgentVehicle').innerHTML = `<i class="fa-solid fa-motorcycle"></i> ${selectedAgent.vehicle_registration || 'MH-12-FL-4400'}`;
 
   const badge = document.getElementById('selectedAgentStatusBadge');
-  if (selectedAgent.is_online === true) {
+  if (isOnline) {
     badge.className = 'badge badge-approved';
     badge.innerHTML = `<i class="fa-solid fa-circle fa-beat" style="font-size:6px; margin-right:3px;"></i> LIVE`;
   } else {
@@ -264,6 +325,10 @@ function selectAgent(idx, initialSubView = 'LIVE') {
   const rahulBtnBox = document.getElementById('rahulSimulateContainer');
   if (rahulBtnBox) rahulBtnBox.style.display = isRahul ? 'block' : 'none';
 
+  // Set default date input value to today
+  const dateInput = document.getElementById('timelineDateInput');
+  if (dateInput) dateInput.value = currentSelectedDate;
+
   // GSAP Transition to Agent Workspace
   if (window.gsap) {
     gsap.to('#fleetOverviewHeader, #fleetList', {
@@ -276,14 +341,14 @@ function selectAgent(idx, initialSubView = 'LIVE') {
         document.getElementById('agentDetailHeader').style.display = 'flex';
 
         gsap.fromTo('#agentDetailHeader', { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out' });
-        switchAgentSubView(initialSubView);
+        switchAgentSubView(targetSubView);
       }
     });
   } else {
     document.getElementById('fleetOverviewHeader').style.display = 'none';
     document.getElementById('fleetList').style.display = 'none';
     document.getElementById('agentDetailHeader').style.display = 'flex';
-    switchAgentSubView(initialSubView);
+    switchAgentSubView(targetSubView);
   }
 }
 window.selectAgent = selectAgent;
@@ -317,9 +382,11 @@ function switchAgentSubView(subView) {
       playerDock.style.display = 'none';
     }
 
-    updateMapHUD(`Live: ${selectedAgent.full_name}`, `${selectedAgent.employee_code} • Real-time GPS Telematics`, true);
+    updateMapHUD(`Live: ${selectedAgent.full_name}`, `${selectedAgent.employee_code} • Real-time GPS Telematics`, selectedAgent.is_online === true);
     updateAgentLivePanelData();
-    focusAgentLiveMarker();
+    if (selectedAgent.is_online === true) {
+      focusAgentLiveMarker();
+    }
 
   } else if (subView === 'TIMELINE') {
     currentNavView = 'AGENT_TIMELINE';
@@ -338,16 +405,10 @@ function switchAgentSubView(subView) {
       gsap.fromTo(timelinePanel, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.28 });
     }
 
-    updateMapHUD(`Timeline: ${selectedAgent.full_name}`, `Route Playback & Shift Inspection`, false);
+    updateMapHUD(`Timeline: ${selectedAgent.full_name}`, `Historical Date-Wise Route Inspection`, false);
 
-    // If Rahul Sharma (EMP-104), load the rich Pune Delivery Circuit
-    if (selectedAgent.employee_code === 'EMP-104') {
-      loadTimelineRoute(RAHUL_SHARMA_PUNE_ROUTE, "Pune Urban Delivery Circuit");
-    } else {
-      // Generate a realistic recorded track for other agents
-      const agentTrack = generateSynthesizedRouteForAgent(selectedAgent);
-      loadTimelineRoute(agentTrack, `${selectedAgent.full_name} Field Track`);
-    }
+    // Load selected date route
+    loadShiftRouteForDate(currentSelectedDate);
   }
 }
 window.switchAgentSubView = switchAgentSubView;
@@ -356,6 +417,99 @@ function exitTimelineMode() {
   switchAgentSubView('LIVE');
 }
 window.exitTimelineMode = exitTimelineMode;
+
+function selectShiftDate(type) {
+  let dateStr = '2026-11-22';
+  document.querySelectorAll('.date-chip').forEach(c => c.classList.remove('active'));
+
+  if (type === 'TODAY') {
+    dateStr = '2026-11-22';
+    const chip = document.getElementById('chipToday');
+    if (chip) chip.classList.add('active');
+  } else if (type === 'YESTERDAY') {
+    dateStr = '2026-11-21';
+    const chip = document.getElementById('chipYesterday');
+    if (chip) chip.classList.add('active');
+  } else if (type === 'DAY_BEFORE') {
+    dateStr = '2026-11-20';
+    const chip = document.getElementById('chipDayBefore');
+    if (chip) chip.classList.add('active');
+  }
+
+  currentSelectedDate = dateStr;
+  const dateInput = document.getElementById('timelineDateInput');
+  if (dateInput) dateInput.value = dateStr;
+
+  loadShiftRouteForDate(dateStr);
+}
+window.selectShiftDate = selectShiftDate;
+
+function onDatePickerChange(dateVal) {
+  if (!dateVal) return;
+  document.querySelectorAll('.date-chip').forEach(c => c.classList.remove('active'));
+  if (dateVal === '2026-11-22') {
+    const chip = document.getElementById('chipToday');
+    if (chip) chip.classList.add('active');
+  } else if (dateVal === '2026-11-21') {
+    const chip = document.getElementById('chipYesterday');
+    if (chip) chip.classList.add('active');
+  } else if (dateVal === '2026-11-20') {
+    const chip = document.getElementById('chipDayBefore');
+    if (chip) chip.classList.add('active');
+  }
+
+  currentSelectedDate = dateVal;
+  loadShiftRouteForDate(dateVal);
+}
+window.onDatePickerChange = onDatePickerChange;
+
+function loadShiftRouteForDate(dateStr) {
+  if (!selectedAgent) return;
+
+  const datePill = document.getElementById('playerDatePill');
+  if (datePill) {
+    datePill.innerHTML = `<i class="fa-solid fa-calendar-day" style="color:var(--accent-orange); margin-right:4px;"></i> ${dateStr}`;
+  }
+
+  // Rahul Sharma specific historical routes
+  if (selectedAgent.employee_code === 'EMP-104') {
+    const routeObj = RAHUL_SHARMA_ROUTES_BY_DATE[dateStr] || {
+      title: `Pune Central Shift (${dateStr})`,
+      distance: "40.5 km",
+      movingTime: "2h 35m",
+      idleTime: "30m",
+      fuelAmount: "₹ 121.50",
+      status: "LOGGED",
+      waypoints: RAHUL_SHARMA_PUNE_ROUTE
+    };
+
+    document.getElementById('timelineShiftTitle').innerHTML = `<i class="fa-regular fa-calendar-check" style="color:var(--accent-cyan); margin-right:6px;"></i> Shift Route: ${dateStr}`;
+    document.getElementById('timelineDistanceVal').textContent = routeObj.distance;
+    document.getElementById('timelineMovingTimeVal').textContent = routeObj.movingTime;
+    document.getElementById('timelineIdleTimeVal').textContent = routeObj.idleTime;
+    document.getElementById('timelineFuelVal').textContent = routeObj.fuelAmount;
+    
+    const statusBadge = document.getElementById('timelineShiftStatus');
+    if (statusBadge) {
+      statusBadge.textContent = routeObj.status;
+      statusBadge.className = routeObj.status === 'APPROVED' ? 'badge badge-approved' : 'badge badge-submitted';
+    }
+
+    loadTimelineRoute(routeObj.waypoints, `${routeObj.title} [${dateStr}]`);
+    return;
+  }
+
+  // Other Field Agents (EMP-105 to EMP-109)
+  const agentTrack = generateSynthesizedRouteForAgentAndDate(selectedAgent, dateStr);
+  document.getElementById('timelineShiftTitle').innerHTML = `<i class="fa-regular fa-calendar-check" style="color:var(--accent-cyan); margin-right:6px;"></i> Shift Route: ${dateStr}`;
+  document.getElementById('timelineDistanceVal').textContent = agentTrack.distance;
+  document.getElementById('timelineMovingTimeVal').textContent = agentTrack.movingTime;
+  document.getElementById('timelineIdleTimeVal').textContent = agentTrack.idleTime;
+  document.getElementById('timelineFuelVal').textContent = agentTrack.fuelAmount;
+
+  loadTimelineRoute(agentTrack.waypoints, `${selectedAgent.full_name} [${dateStr}]`);
+}
+window.loadShiftRouteForDate = loadShiftRouteForDate;
 
 function updateMapHUD(title, sub, isLivePulse) {
   const dot = document.getElementById('hudStatusDot');
@@ -371,6 +525,19 @@ function updateMapHUD(title, sub, isLivePulse) {
 
 function updateAgentLivePanelData() {
   if (!selectedAgent) return;
+  const isOnline = selectedAgent.is_online === true;
+  const notice = document.getElementById('agentOfflineNotice');
+  const metrics = document.getElementById('agentOnlineMetrics');
+
+  if (!isOnline) {
+    if (notice) notice.style.display = 'flex';
+    if (metrics) metrics.style.display = 'none';
+    return;
+  }
+
+  if (notice) notice.style.display = 'none';
+  if (metrics) metrics.style.display = 'block';
+
   const speed = selectedAgent.speed_kmh || 0;
   const battery = selectedAgent.battery_pct != null ? selectedAgent.battery_pct : 88;
   const isCharging = selectedAgent.is_charging === true;
@@ -405,23 +572,38 @@ window.focusAgentLiveMarker = focusAgentLiveMarker;
 
 function runRahulSimulation() {
   if (selectedAgent && selectedAgent.employee_code === 'EMP-104') {
-    loadTimelineRoute(RAHUL_SHARMA_PUNE_ROUTE, "Simulated Pune Delivery Circuit");
+    selectShiftDate('TODAY');
     togglePlayPause(true); // Auto-start
   }
 }
 window.runRahulSimulation = runRahulSimulation;
 
-function generateSynthesizedRouteForAgent(agent) {
+function generateSynthesizedRouteForAgentAndDate(agent, dateStr) {
   const baseLat = agent.lat || 18.5204;
   const baseLng = agent.lng || 73.8567;
-  return [
-    { lat: baseLat - 0.02, lng: baseLng - 0.02, time: "09:30 AM", speed: 0, road: "Branch Starting Depo", stop: "Departure" },
-    { lat: baseLat - 0.015, lng: baseLng - 0.012, time: "10:05 AM", speed: 32, road: "Transit Ring Road" },
-    { lat: baseLat - 0.008, lng: baseLng - 0.005, time: "10:45 AM", speed: 38, road: "Urban Sector 4" },
-    { lat: baseLat, lng: baseLng, time: "11:30 AM", speed: 0, road: "Assigned Delivery Point", stop: "Client Visit" },
-    { lat: baseLat + 0.008, lng: baseLng + 0.006, time: "01:15 PM", speed: 29, road: "Industrial Area Expressway" },
-    { lat: baseLat + 0.015, lng: baseLng + 0.018, time: "03:45 PM", speed: 0, road: "Field Dispatch Depot", stop: "Shift Closed" }
-  ];
+
+  // Pseudo-seed based on date
+  const dayOffset = dateStr.endsWith('21') ? 0.015 : dateStr.endsWith('20') ? -0.012 : 0;
+  const distanceKm = (38.5 + (dateStr.charCodeAt(dateStr.length - 1) % 15)).toFixed(1);
+  const fuel = (distanceKm * 3.0).toFixed(2);
+
+  return {
+    distance: `${distanceKm} km`,
+    movingTime: "2h 30m",
+    idleTime: "40m",
+    fuelAmount: `₹ ${fuel}`,
+    waypoints: [
+      { lat: baseLat - 0.02 + dayOffset, lng: baseLng - 0.02 + dayOffset, time: "09:15 AM", speed: 0, road: "District Base Logistics Hub", stop: "Shift Began" },
+      { lat: baseLat - 0.012 + dayOffset, lng: baseLng - 0.010 + dayOffset, time: "09:45 AM", speed: 32, road: "Main Arterial Avenue" },
+      { lat: baseLat - 0.005 + dayOffset, lng: baseLng - 0.003 + dayOffset, time: "10:30 AM", speed: 28, road: "Commercial Zone Hub", stop: "Delivery #1: Client Dispatch" },
+      { lat: baseLat - 0.005 + dayOffset, lng: baseLng - 0.003 + dayOffset, time: "10:55 AM", speed: 0, road: "Client Dock", stop: "Stop Duration: 25 mins" },
+      { lat: baseLat + 0.008 + dayOffset, lng: baseLng + 0.006 + dayOffset, time: "11:45 AM", speed: 38, road: "Express Transit Ring" },
+      { lat: baseLat + 0.018 + dayOffset, lng: baseLng + 0.015 + dayOffset, time: "01:20 PM", speed: 0, road: "Regional Fulfillment Center", stop: "Delivery #2: Wholesale Handover" },
+      { lat: baseLat + 0.018 + dayOffset, lng: baseLng + 0.015 + dayOffset, time: "01:50 PM", speed: 0, road: "Center Bay 2", stop: "Stop Duration: 30 mins" },
+      { lat: baseLat + 0.010 + dayOffset, lng: baseLng + 0.008 + dayOffset, time: "03:10 PM", speed: 35, road: "Industrial Connector Highway" },
+      { lat: baseLat - 0.02 + dayOffset, lng: baseLng - 0.02 + dayOffset, time: "04:30 PM", speed: 0, road: "District Base Logistics Hub Return", stop: "Shift Concluded" }
+    ]
+  };
 }
 
 function loadTimelineRoute(waypoints, title) {
@@ -948,7 +1130,7 @@ function renderFleetList() {
       : `<span><i class="fa-solid fa-mobile-screen" style="color:var(--text-muted);"></i> Shift Inactive</span>`;
 
     return `
-      <div class="fleet-card ${isOnline ? 'is-online' : ''}" onclick="selectAgent(${idx}, 'LIVE')">
+      <div class="fleet-card ${isOnline ? 'is-online' : ''}" onclick="selectAgent(${idx}, '${isOnline ? 'LIVE' : 'TIMELINE'}')">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
           <span style="font-weight:700; color:#fff; font-size:0.92rem;">${escapeHtml(agent.full_name)}</span>
           ${statusBadge}
