@@ -93,7 +93,20 @@
 
       <!-- VIEW 2: Single Agent Live Telematics Panel -->
       <div id="agentLivePanel" class="sidebar-scrollable-body" style="display:none;">
-        <div class="telemetry-dashboard-card">
+        
+        <!-- Offline Agent Friendly Banner -->
+        <div id="agentOfflineNotice" class="offline-callout-card" style="display:none;">
+          <div class="offline-icon"><i class="fa-solid fa-moon"></i></div>
+          <div style="flex:1;">
+            <h4 style="font-size:0.86rem; font-weight:700; color:#fff; margin-bottom:2px;">Field Agent Offline</h4>
+            <p style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:8px;">No active GPS transmission in the last 2 minutes.</p>
+            <button class="btn btn-primary" style="font-size:0.75rem; padding:4px 10px;" onclick="switchAgentSubView('TIMELINE')">
+              <i class="fa-solid fa-film"></i> Open Date-Wise Timeline View
+            </button>
+          </div>
+        </div>
+
+        <div id="agentOnlineMetrics" class="telemetry-dashboard-card">
           <div class="telemetry-metric-row">
             <div class="telemetry-stat-box">
               <span class="stat-label">Live Speed</span>
@@ -141,18 +154,37 @@
         </div>
       </div>
 
-      <!-- VIEW 3: Single Agent Timeline Details Panel -->
+      <!-- VIEW 3: Single Agent Timeline Details Panel (Date-Wise Selection) -->
       <div id="agentTimelinePanel" class="sidebar-scrollable-body" style="display:none;">
+        
+        <!-- Date-Wise Shift Selector -->
+        <div class="date-selector-card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span style="font-size:0.74rem; font-weight:700; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px;">
+              <i class="fa-solid fa-calendar-day" style="color:var(--accent-cyan); margin-right:4px;"></i> Select Shift Date
+            </span>
+            <input type="date" id="timelineDateInput" class="custom-date-input" onchange="onDatePickerChange(this.value)">
+          </div>
+
+          <div class="date-chips-row">
+            <button class="date-chip active" id="chipToday" onclick="selectShiftDate('TODAY')">Today (Nov 22)</button>
+            <button class="date-chip" id="chipYesterday" onclick="selectShiftDate('YESTERDAY')">Nov 21</button>
+            <button class="date-chip" id="chipDayBefore" onclick="selectShiftDate('DAY_BEFORE')">Nov 20</button>
+          </div>
+        </div>
+
         <div class="timeline-summary-card">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-            <span style="font-weight:700; font-size:0.9rem;"><i class="fa-regular fa-calendar-days" style="color:var(--accent-cyan); margin-right:6px;"></i> Today's Shift Replay</span>
-            <span class="badge badge-submitted" id="timelineShiftStatus">COMPLETED</span>
+            <span style="font-weight:700; font-size:0.9rem;" id="timelineShiftTitle">
+              <i class="fa-regular fa-calendar-check" style="color:var(--accent-cyan); margin-right:6px;"></i> Shift Route Summary
+            </span>
+            <span class="badge badge-approved" id="timelineShiftStatus">LOGGED</span>
           </div>
 
           <div class="shift-stats-grid">
             <div class="shift-stat-item">
               <span class="num" id="timelineDistanceVal">42.8 km</span>
-              <span class="lbl">Total Distance</span>
+              <span class="lbl">Distance Traveled</span>
             </div>
             <div class="shift-stat-item">
               <span class="num" id="timelineMovingTimeVal">2h 45m</span>
@@ -163,14 +195,14 @@
               <span class="lbl">Idle / Stops</span>
             </div>
             <div class="shift-stat-item">
-              <span class="num" id="timelineFuelVal">1.22 L</span>
-              <span class="lbl">Fuel Used</span>
+              <span class="num" id="timelineFuelVal">₹ 128.40</span>
+              <span class="lbl">Fuel Claimed</span>
             </div>
           </div>
         </div>
 
         <div style="margin-top:16px;">
-          <h4 style="font-size:0.82rem; text-transform:uppercase; color:var(--text-secondary); margin-bottom:10px; letter-spacing:0.5px;">Key Shift Waypoints & Stops</h4>
+          <h4 style="font-size:0.82rem; text-transform:uppercase; color:var(--text-secondary); margin-bottom:10px; letter-spacing:0.5px;">Checkpoints & Delivery Stops</h4>
           <div id="timelineWaypointsList" class="timeline-waypoints-list">
             <!-- Dynamic stop checkpoints -->
           </div>
@@ -192,9 +224,14 @@
       <!-- Floating Bottom Timeline Player Dock (GSAP Animated) -->
       <div id="timelinePlayerDock" class="timeline-player-dock" style="display:none; transform:translateY(80px); opacity:0;">
         <div class="player-top-bar">
-          <div class="player-clock-badge">
-            <i class="fa-regular fa-clock" style="color:var(--accent-cyan);"></i>
-            <span id="playerClock">09:00 AM</span>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div class="player-clock-badge">
+              <i class="fa-regular fa-clock" style="color:var(--accent-cyan);"></i>
+              <span id="playerClock">09:00 AM</span>
+            </div>
+            <div class="player-date-pill" id="playerDatePill">
+              <i class="fa-solid fa-calendar-day" style="color:var(--accent-orange); margin-right:4px;"></i> 2026-11-22
+            </div>
           </div>
 
           <div class="player-status-tag" id="playerLegTitle">
