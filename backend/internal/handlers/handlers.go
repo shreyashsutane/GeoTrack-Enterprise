@@ -623,12 +623,14 @@ func (h *Handler) PingTelematics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var agentKey string
+	var empCode string
 	authHeader := r.Header.Get("Authorization")
 	if strings.HasPrefix(authHeader, "Bearer ") {
 		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 		claims, err := auth.ValidateToken(tokenStr, h.jwtSecret)
 		if err == nil && claims != nil {
 			agentKey = claims.UserID
+			empCode = claims.EmployeeCode
 		}
 	}
 	if agentKey == "" {
@@ -654,6 +656,9 @@ func (h *Handler) PingTelematics(w http.ResponseWriter, r *http.Request) {
 		LastSeenAt: time.Now().UTC(),
 	}
 	h.liveTelemetry[agentKey] = t
+	if empCode != "" {
+		h.liveTelemetry[empCode] = t
+	}
 	if payload.DeviceID != "" {
 		h.liveTelemetry[payload.DeviceID] = t
 	}
