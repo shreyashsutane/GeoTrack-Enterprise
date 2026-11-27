@@ -254,40 +254,45 @@ function initLeafletFallback() {
 // 3-View Navigation Hierarchy Controller
 // ==============================================================================
 
+const VIEW_PANELS = '#fleetOverviewHeader, #fleetList, #agentDetailHeader, #agentLivePanel, #agentTimelinePanel, #timelinePlayerDock';
+
+function killViewTweens() {
+  if (window.gsap) gsap.killTweensOf(VIEW_PANELS);
+}
+
 function exitToFleetView() {
   stopTimelinePlayback();
   clearTimelineMapLayers();
+  killViewTweens();
 
   currentNavView = 'FLEET_ALL';
   selectedAgent = null;
   selectedAgentIndex = -1;
 
-  // GSAP Smooth Navigation Switch
-  if (window.gsap) {
-    gsap.to('#agentDetailHeader, #agentLivePanel, #agentTimelinePanel, #timelinePlayerDock', {
-      opacity: 0,
-      y: 10,
-      duration: 0.22,
-      ease: 'power2.in',
-      onComplete: () => {
-        document.getElementById('agentDetailHeader').style.display = 'none';
-        document.getElementById('agentLivePanel').style.display = 'none';
-        document.getElementById('agentTimelinePanel').style.display = 'none';
-        document.getElementById('timelinePlayerDock').style.display = 'none';
-
-        document.getElementById('fleetOverviewHeader').style.display = 'flex';
-        document.getElementById('fleetList').style.display = 'flex';
-
-        gsap.fromTo('#fleetOverviewHeader, #fleetList', { opacity: 0, y: -8 }, { opacity: 1, y: 0, duration: 0.28, ease: 'power2.out' });
-      }
-    });
-  } else {
+  const showFleet = () => {
     document.getElementById('agentDetailHeader').style.display = 'none';
     document.getElementById('agentLivePanel').style.display = 'none';
     document.getElementById('agentTimelinePanel').style.display = 'none';
     document.getElementById('timelinePlayerDock').style.display = 'none';
+
     document.getElementById('fleetOverviewHeader').style.display = 'flex';
     document.getElementById('fleetList').style.display = 'flex';
+    renderFleetList(true);
+  };
+
+  if (window.gsap) {
+    gsap.to('#agentDetailHeader, #agentLivePanel, #agentTimelinePanel, #timelinePlayerDock', {
+      opacity: 0,
+      y: 10,
+      duration: 0.2,
+      ease: 'power2.in',
+      onComplete: () => {
+        showFleet();
+        gsap.fromTo('#fleetOverviewHeader, #fleetList', { opacity: 0, y: -8 }, { opacity: 1, y: 0, duration: 0.25, ease: 'power2.out' });
+      }
+    });
+  } else {
+    showFleet();
   }
 
   updateMapHUD('All Fleet Overview', `${assignedAgents.length} assigned assets monitored`, false);
@@ -297,12 +302,14 @@ window.exitToFleetView = exitToFleetView;
 
 function selectAgent(idx, initialSubView = null) {
   if (idx < 0 || idx >= assignedAgents.length) return;
+  killViewTweens();
   selectedAgentIndex = idx;
   selectedAgent = assignedAgents[idx];
 
   const isOnline = selectedAgent.is_online === true;
   // If agent is offline, default to TIMELINE so historical review is immediate
   const targetSubView = initialSubView || (isOnline ? 'LIVE' : 'TIMELINE');
+  currentNavView = targetSubView === 'LIVE' ? 'AGENT_LIVE' : 'AGENT_TIMELINE';
 
   // Update Agent Detail Header Profile
   document.getElementById('selectedAgentName').textContent = selectedAgent.full_name;
@@ -329,26 +336,27 @@ function selectAgent(idx, initialSubView = null) {
   const dateInput = document.getElementById('timelineDateInput');
   if (dateInput) dateInput.value = currentSelectedDate;
 
-  // GSAP Transition to Agent Workspace
-  if (window.gsap) {
-    gsap.to('#fleetOverviewHeader, #fleetList', {
-      opacity: 0,
-      y: -8,
-      duration: 0.2,
-      onComplete: () => {
-        document.getElementById('fleetOverviewHeader').style.display = 'none';
-        document.getElementById('fleetList').style.display = 'none';
-        document.getElementById('agentDetailHeader').style.display = 'flex';
-
-        gsap.fromTo('#agentDetailHeader', { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out' });
-        switchAgentSubView(targetSubView);
-      }
-    });
-  } else {
+  const openDetail = () => {
     document.getElementById('fleetOverviewHeader').style.display = 'none';
     document.getElementById('fleetList').style.display = 'none';
     document.getElementById('agentDetailHeader').style.display = 'flex';
+    if (window.gsap) {
+      gsap.fromTo('#agentDetailHeader', { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.28, ease: 'power2.out' });
+    } else {
+      document.getElementById('agentDetailHeader').style.opacity = '1';
+    }
     switchAgentSubView(targetSubView);
+  };
+
+  if (window.gsap && document.getElementById('fleetList').style.display !== 'none') {
+    gsap.to('#fleetOverviewHeader, #fleetList', {
+      opacity: 0,
+      y: -8,
+      duration: 0.18,
+      onComplete: openDetail
+    });
+  } else {
+    openDetail();
   }
 }
 window.selectAgent = selectAgent;
@@ -360,6 +368,7 @@ function switchAgentSubView(subView) {
   const livePanel = document.getElementById('agentLivePanel');
   const timelinePanel = document.getElementById('agentTimelinePanel');
   const playerDock = document.getElementById('timelinePlayerDock');
+  if (window.gsap) gsap.killTweensOf([livePanel, timelinePanel, playerDock]);
 
   if (subView === 'LIVE') {
     currentNavView = 'AGENT_LIVE';
@@ -376,8 +385,8 @@ function switchAgentSubView(subView) {
 
     // Hide Timeline Dock with GSAP
     if (window.gsap) {
-      gsap.to(playerDock, { y: 60, opacity: 0, duration: 0.25, onComplete: () => { playerDock.style.display = 'none'; } });
-      gsap.fromTo(livePanel, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.28 });
+      gsap.to(playerDock, { xPercent: -50, x: 0, y: 60, opacity: 0, duration: 0.22, onComplete: () => { playerDock.style.display = 'none'; } });
+      gsap.fromTo(livePanel, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.25 });
     } else {
       playerDock.style.display = 'none';
     }
@@ -398,11 +407,11 @@ function switchAgentSubView(subView) {
     livePanel.style.display = 'none';
     timelinePanel.style.display = 'flex';
 
-    // Show Timeline Dock with GSAP Slide-Up
+    // Show Timeline Dock with GSAP Slide-Up (preserve horizontal -50% centering)
     playerDock.style.display = 'flex';
     if (window.gsap) {
-      gsap.fromTo(playerDock, { y: 80, opacity: 0, scale: 0.96 }, { y: 0, opacity: 1, scale: 1, duration: 0.4, ease: 'back.out(1.2)' });
-      gsap.fromTo(timelinePanel, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.28 });
+      gsap.fromTo(playerDock, { xPercent: -50, x: 0, y: 80, opacity: 0, scale: 0.96 }, { xPercent: -50, x: 0, y: 0, opacity: 1, scale: 1, duration: 0.35, ease: 'back.out(1.2)' });
+      gsap.fromTo(timelinePanel, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.25 });
     }
 
     updateMapHUD(`Timeline: ${selectedAgent.full_name}`, `Historical Date-Wise Route Inspection`, false);
@@ -937,39 +946,51 @@ function calculateBearing(lat1, lon1, lat2, lon2) {
 // Live Fleet Markers & Realtime Updates
 // ==============================================================================
 
+let lastFleetSignature = '';
+
+function buildMarkerPopupHtml(agent, agentIdx) {
+  return `
+    <div style="color:#111; font-family:sans-serif; min-width:200px;">
+      <h4 style="margin:0 0 4px 0; font-size:14px; font-weight:700;">${escapeHtml(agent.full_name)}</h4>
+      <p style="margin:0 0 6px 0; font-size:12px; color:#555;">Code: <strong>${escapeHtml(agent.employee_code)}</strong></p>
+      <div style="font-size:11px; color:#222; background:#f4f4f4; padding:6px; border-radius:4px; display:flex; flex-direction:column; gap:3px; margin-bottom:8px;">
+        <div>Status: <span style="color:#00a86b; font-weight:700;">● LIVE TRANSMITTING</span></div>
+        <div>Speed: <strong>${(agent.speed_kmh || 0).toFixed(1)} km/h</strong></div>
+        <div>Battery: <strong>${agent.battery_pct != null ? agent.battery_pct + '%' : 'N/A'}</strong></div>
+      </div>
+      <div style="display:flex; gap:6px;">
+        <button type="button" onclick="selectAgent(${agentIdx}, 'LIVE')" style="flex:1; padding:5px 8px; border:none; border-radius:6px; background:#0091ea; color:#fff; font-size:11px; font-weight:700; cursor:pointer;">Live Location</button>
+        <button type="button" onclick="selectAgent(${agentIdx}, 'TIMELINE')" style="flex:1; padding:5px 8px; border:1px solid #0091ea; border-radius:6px; background:#fff; color:#0069c0; font-size:11px; font-weight:700; cursor:pointer;">Timeline View</button>
+      </div>
+    </div>
+  `;
+}
+
 function updateMapMarkers(reFit = false) {
   // If user is currently inspecting a timeline replay, suppress live fleet marker overrides
   if (currentNavView === 'AGENT_TIMELINE') return;
 
-  const onlineAgents = (assignedAgents || []).filter(a => a.lat != null && a.lng != null);
+  const onlineAgents = (assignedAgents || [])
+    .map((agent, idx) => ({ agent, idx }))
+    .filter(({ agent }) => agent.lat != null && agent.lng != null);
 
   // 1. Google Maps Engine
   if (isGoogleMapsActive && googleMap) {
     const activeIds = new Set();
     const bounds = new google.maps.LatLngBounds();
 
-    onlineAgents.forEach((agent, i) => {
-      const markerKey = agent.id || agent.employee_code || i;
+    onlineAgents.forEach(({ agent, idx }) => {
+      const markerKey = agent.id || agent.employee_code || idx;
       activeIds.add(markerKey);
       const pos = { lat: agent.lat, lng: agent.lng };
       bounds.extend(pos);
-
-      const contentString = `
-        <div style="color:#111; font-family:sans-serif; min-width:200px;">
-          <h4 style="margin:0 0 4px 0; font-size:14px; font-weight:700;">${escapeHtml(agent.full_name)}</h4>
-          <p style="margin:0 0 6px 0; font-size:12px; color:#555;">Code: <strong>${escapeHtml(agent.employee_code)}</strong></p>
-          <div style="font-size:11px; color:#222; background:#f4f4f4; padding:6px; border-radius:4px; display:flex; flex-direction:column; gap:3px;">
-            <div>Status: <span style="color:#00a86b; font-weight:700;">● LIVE TRANSMITTING</span></div>
-            <div>Speed: <strong>${(agent.speed_kmh || 0).toFixed(1)} km/h</strong></div>
-            <div>Battery: <strong>${agent.battery_pct != null ? agent.battery_pct + '%' : 'N/A'}</strong></div>
-          </div>
-        </div>
-      `;
+      const contentString = buildMarkerPopupHtml(agent, idx);
 
       if (googleMarkers[markerKey]) {
         googleMarkers[markerKey].marker.setPosition(pos);
         googleMarkers[markerKey].infoWindow.setContent(contentString);
         googleMarkers[markerKey].pos = pos;
+        googleMarkers[markerKey].idx = idx;
       } else {
         const marker = new google.maps.Marker({
           position: pos,
@@ -985,12 +1006,14 @@ function updateMapMarkers(reFit = false) {
           }
         });
         const infoWindow = new google.maps.InfoWindow({ content: contentString });
+        const entry = { marker, infoWindow, pos, idx };
         marker.addListener("click", () => {
           if (activeInfoWindow) activeInfoWindow.close();
           infoWindow.open(googleMap, marker);
           activeInfoWindow = infoWindow;
+          selectAgent(entry.idx, 'LIVE');
         });
-        googleMarkers[markerKey] = { marker, infoWindow, pos };
+        googleMarkers[markerKey] = entry;
       }
     });
 
@@ -1004,7 +1027,7 @@ function updateMapMarkers(reFit = false) {
     if ((!hasInitialFittedBounds || reFit) && onlineAgents.length > 0) {
       hasInitialFittedBounds = true;
       if (onlineAgents.length === 1) {
-        googleMap.setCenter({ lat: onlineAgents[0].lat, lng: onlineAgents[0].lng });
+        googleMap.setCenter({ lat: onlineAgents[0].agent.lat, lng: onlineAgents[0].agent.lng });
         googleMap.setZoom(16);
       } else {
         googleMap.fitBounds(bounds);
@@ -1018,30 +1041,20 @@ function updateMapMarkers(reFit = false) {
     const activeIds = new Set();
     const bounds = [];
 
-    onlineAgents.forEach((agent, i) => {
-      const markerKey = agent.id || agent.employee_code || i;
+    onlineAgents.forEach(({ agent, idx }) => {
+      const markerKey = agent.id || agent.employee_code || idx;
       activeIds.add(markerKey);
       const lat = agent.lat;
       const lng = agent.lng;
       bounds.push([lat, lng]);
-
-      const popupHtml = `
-        <div style="color:#111; font-family:sans-serif; min-width:180px;">
-          <h4 style="margin:0 0 4px 0; font-size:14px; font-weight:700;">${escapeHtml(agent.full_name)}</h4>
-          <p style="margin:0 0 6px 0; font-size:12px; color:#555;">Code: <strong>${escapeHtml(agent.employee_code)}</strong></p>
-          <div style="font-size:11px; color:#222; background:#f4f4f4; padding:6px; border-radius:4px; display:flex; flex-direction:column; gap:3px;">
-            <div>Status: <span style="color:#00a86b; font-weight:700;">● LIVE TRANSMITTING</span></div>
-            <div>Speed: <strong>${(agent.speed_kmh || 0).toFixed(1)} km/h</strong></div>
-            <div>Battery: <strong>${agent.battery_pct != null ? agent.battery_pct + '%' : 'N/A'}</strong></div>
-          </div>
-        </div>
-      `;
+      const popupHtml = buildMarkerPopupHtml(agent, idx);
 
       if (leafletMarkers[markerKey]) {
         leafletMarkers[markerKey].marker.setLatLng([lat, lng]);
         leafletMarkers[markerKey].marker.setPopupContent(popupHtml);
         leafletMarkers[markerKey].lat = lat;
         leafletMarkers[markerKey].lng = lng;
+        leafletMarkers[markerKey].idx = idx;
       } else {
         const customIcon = L.divIcon({
           className: 'vehicle-marker',
@@ -1056,7 +1069,9 @@ function updateMapMarkers(reFit = false) {
 
         const marker = L.marker([lat, lng], { icon: customIcon }).addTo(leafletMap);
         marker.bindPopup(popupHtml);
-        leafletMarkers[markerKey] = { marker, lat, lng };
+        const entry = { marker, lat, lng, idx };
+        marker.on('click', () => selectAgent(entry.idx, 'LIVE'));
+        leafletMarkers[markerKey] = entry;
       }
     });
 
@@ -1104,9 +1119,13 @@ async function loadAssignedFleet() {
   }
 }
 
-function renderFleetList() {
+function renderFleetList(force = false) {
   const listContainer = document.getElementById('fleetList');
   if (!listContainer) return;
+
+  const signature = JSON.stringify((assignedAgents || []).map(a => [a.id || a.employee_code, !!a.is_online, a.battery_pct, Math.round(a.speed_kmh || 0)]));
+  if (!force && signature === lastFleetSignature) return;
+  lastFleetSignature = signature;
 
   if (assignedAgents.length === 0) {
     listContainer.innerHTML = `
@@ -1140,10 +1159,10 @@ function renderFleetList() {
           ${telemetrySub}
         </div>
         <div style="display:flex; gap:8px; margin-top:8px; border-top:1px solid rgba(255,255,255,0.05); padding-top:8px;">
-          <button class="btn btn-secondary" style="flex:1; padding:4px 8px; font-size:0.72rem; justify-content:center;" onclick="event.stopPropagation(); selectAgent(${idx}, 'LIVE')">
+          <button type="button" class="btn btn-secondary" style="flex:1; padding:4px 8px; font-size:0.72rem; justify-content:center;" onclick="event.stopPropagation(); selectAgent(${idx}, 'LIVE')">
             <i class="fa-solid fa-satellite-dish" style="color:var(--accent-cyan);"></i> Live
           </button>
-          <button class="btn btn-secondary" style="flex:1; padding:4px 8px; font-size:0.72rem; justify-content:center;" onclick="event.stopPropagation(); selectAgent(${idx}, 'TIMELINE')">
+          <button type="button" class="btn btn-secondary" style="flex:1; padding:4px 8px; font-size:0.72rem; justify-content:center;" onclick="event.stopPropagation(); selectAgent(${idx}, 'TIMELINE')">
             <i class="fa-solid fa-film" style="color:var(--accent-orange);"></i> Timeline
           </button>
         </div>

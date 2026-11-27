@@ -19,3 +19,9 @@ backend/server
 .DS_Store
 .idea/
 *.iml
+
+# Environment & Neon
+.env
+.env.*
+.neon/
+.neon
