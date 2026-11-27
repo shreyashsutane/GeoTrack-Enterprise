@@ -215,3 +215,21 @@ type ReviewReportRequest struct {
 	Status          ReportStatus `json:"status"` // APPROVED or REJECTED
 	RejectionReason string       `json:"rejection_reason,omitempty"`
 }
+
+// TelemetryPoint represents a persisted GPS breadcrumb
+type TelemetryPoint struct {
+	ID           int64     `json:"id,omitempty"`
+	UserID       uuid.UUID `json:"user_id"`
+	EmployeeCode string    `json:"employee_code,omitempty"`
+	DeviceID     string    `json:"device_id,omitempty"`
+	Lat          float64   `json:"lat"`
+	Lng          float64   `json:"lng"`
+	SpeedKmh     float64   `json:"speed_kmh"`
+	Bearing      float64   `json:"bearing"`
+	Altitude     float64   `json:"altitude"`
+	Accuracy     float64   `json:"accuracy"`
+	BatteryPct   int       `json:"battery_pct"`
+	IsCharging   bool      `json:"is_charging"`
+	TimestampMs  int64     `json:"timestamp"`
+	RecordedAt   time.Time `json:"recorded_at"`
+}

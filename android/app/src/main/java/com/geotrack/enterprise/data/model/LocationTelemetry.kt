@@ -3,6 +3,8 @@ package com.geotrack.enterprise.data.model
 data class LocationTelemetry(
     val deviceId: String,
     val agentName: String,
+    val employeeCode: String = "",
+    val agentId: String = "",
     val lat: Double,
     val lng: Double,
     val speedKmh: Float,

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -628,10 +629,12 @@ func (h *Handler) PingTelematics(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(authHeader, "Bearer ") {
 		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 		claims, err := auth.ValidateToken(tokenStr, h.jwtSecret)
-		if err == nil && claims != nil {
-			agentKey = claims.UserID
-			empCode = claims.EmployeeCode
+		if err != nil || claims == nil {
+			writeError(w, http.StatusUnauthorized, "session expired, please sign in again")
+			return
 		}
+		agentKey = claims.UserID
+		empCode = claims.EmployeeCode
 	}
 	if agentKey == "" {
 		agentKey = payload.DeviceID
@@ -664,5 +667,86 @@ func (h *Handler) PingTelematics(w http.ResponseWriter, r *http.Request) {
 	}
 	h.telemetryMu.Unlock()
 
+	if userUUID, err := uuid.Parse(agentKey); err == nil {
+		_ = h.store.RecordTelemetry(r.Context(), &models.TelemetryPoint{
+			UserID:       userUUID,
+			EmployeeCode: empCode,
+			DeviceID:     payload.DeviceID,
+			Lat:          payload.Lat,
+			Lng:          payload.Lng,
+			SpeedKmh:     payload.SpeedKmh,
+			Bearing:      payload.Bearing,
+			Altitude:     payload.Altitude,
+			Accuracy:     payload.Accuracy,
+			BatteryPct:   payload.BatteryPct,
+			IsCharging:   payload.IsCharging,
+			RecordedAt:   t.LastSeenAt,
+		})
+	}
+
 	writeJSON(w, http.StatusAccepted, map[string]string{"status": "telemetry_received"})
+}
+
+// GetAgentTimeline returns real recorded GPS telemetry waypoints for an assigned agent
+func (h *Handler) GetAgentTimeline(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(middleware.UserContextKey).(*auth.CustomClaims)
+	managerID, _ := uuid.Parse(claims.UserID)
+
+	agentIDStr := r.PathValue("id")
+	agentUUID, err := uuid.Parse(agentIDStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid agent id")
+		return
+	}
+
+	// Enforce manager supervisory scope unless caller is SUPER_ADMIN
+	if claims.Role != string(models.RoleSuperAdmin) {
+		assigned, err := h.store.GetAssignedAgentsForManager(r.Context(), managerID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to verify scope")
+			return
+		}
+		allowed := false
+		for _, a := range assigned {
+			if a.ID == agentUUID {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			writeError(w, http.StatusForbidden, "agent is outside your assigned fleet")
+			return
+		}
+	}
+
+	var startTime, endTime time.Time
+	q := r.URL.Query()
+	if startMsStr, endMsStr := q.Get("start_ms"), q.Get("end_ms"); startMsStr != "" && endMsStr != "" {
+		startMs, err1 := strconv.ParseInt(startMsStr, 10, 64)
+		endMs, err2 := strconv.ParseInt(endMsStr, 10, 64)
+		if err1 == nil && err2 == nil {
+			startTime = time.UnixMilli(startMs).UTC()
+			endTime = time.UnixMilli(endMs).UTC()
+		}
+	}
+	if startTime.IsZero() {
+		dateStr := q.Get("date")
+		if dateStr == "" {
+			dateStr = time.Now().UTC().Format("2006-01-02")
+		}
+		parsed, err := time.Parse("2006-01-02", dateStr)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "date must be YYYY-MM-DD")
+			return
+		}
+		startTime = parsed
+		endTime = parsed.Add(24*time.Hour - time.Millisecond)
+	}
+
+	points, err := h.store.GetTelemetryHistory(r.Context(), agentUUID, startTime, endTime)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to fetch timeline history")
+		return
+	}
+	writeJSON(w, http.StatusOK, points)
 }

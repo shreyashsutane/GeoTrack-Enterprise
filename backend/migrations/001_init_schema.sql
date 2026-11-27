@@ -159,3 +159,22 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_audit_logs_actor ON audit_logs(actor_id, created_at DESC);
+
+-- 8. GPS Telemetry History (Real Timeline Route Storage)
+CREATE TABLE IF NOT EXISTS telemetry_history (
+    id BIGSERIAL PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    employee_code VARCHAR(50),
+    device_id VARCHAR(100),
+    lat DOUBLE PRECISION NOT NULL,
+    lng DOUBLE PRECISION NOT NULL,
+    speed_kmh DOUBLE PRECISION DEFAULT 0,
+    bearing DOUBLE PRECISION DEFAULT 0,
+    altitude DOUBLE PRECISION DEFAULT 0,
+    accuracy DOUBLE PRECISION DEFAULT 0,
+    battery_pct INT DEFAULT 100,
+    is_charging BOOLEAN DEFAULT FALSE,
+    recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_telemetry_user_time ON telemetry_history(user_id, recorded_at ASC);

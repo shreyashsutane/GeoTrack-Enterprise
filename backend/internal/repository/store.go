@@ -38,6 +38,8 @@ type Store interface {
 	ResetFailedLogins(ctx context.Context, userID uuid.UUID) error
 	ListAuditLogs(ctx context.Context) ([]*models.AuditLog, error)
 	RecordAuditLog(ctx context.Context, log *models.AuditLog) error
+	RecordTelemetry(ctx context.Context, pt *models.TelemetryPoint) error
+	GetTelemetryHistory(ctx context.Context, agentID uuid.UUID, startTime, endTime time.Time) ([]*models.TelemetryPoint, error)
 }
 
 func NewStore(db *database.DB) Store {
@@ -56,6 +58,7 @@ type InMemoryStore struct {
 	assignments map[uuid.UUID][]uuid.UUID // managerID -> []agentIDs
 	reports     map[uuid.UUID]*models.Report
 	auditLogs   []*models.AuditLog
+	telemetry   map[uuid.UUID][]*models.TelemetryPoint
 }
 
 func NewInMemoryStore() *InMemoryStore {
@@ -64,6 +67,7 @@ func NewInMemoryStore() *InMemoryStore {
 		assignments: make(map[uuid.UUID][]uuid.UUID),
 		reports:     make(map[uuid.UUID]*models.Report),
 		auditLogs:   make([]*models.AuditLog, 0),
+		telemetry:   make(map[uuid.UUID][]*models.TelemetryPoint),
 	}
 
 	// Seed Default Super Admin (Pass: AdminPass123!)
@@ -487,6 +491,32 @@ func (s *InMemoryStore) RecordAuditLog(ctx context.Context, entry *models.AuditL
 	return nil
 }
 
+func (s *InMemoryStore) RecordTelemetry(ctx context.Context, pt *models.TelemetryPoint) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if pt.RecordedAt.IsZero() {
+		pt.RecordedAt = time.Now().UTC()
+	}
+	pt.TimestampMs = pt.RecordedAt.UnixMilli()
+	s.telemetry[pt.UserID] = append(s.telemetry[pt.UserID], pt)
+	return nil
+}
+
+func (s *InMemoryStore) GetTelemetryHistory(ctx context.Context, agentID uuid.UUID, startTime, endTime time.Time) ([]*models.TelemetryPoint, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var out []*models.TelemetryPoint
+	for _, pt := range s.telemetry[agentID] {
+		if !pt.RecordedAt.Before(startTime) && !pt.RecordedAt.After(endTime) {
+			out = append(out, pt)
+		}
+	}
+	if out == nil {
+		return []*models.TelemetryPoint{}, nil
+	}
+	return out, nil
+}
+
 // ==============================================================================
 // PostgreSQL Store (Enterprise Live Mode)
 // ==============================================================================
@@ -576,13 +606,29 @@ func (p *PostgresStore) CreateUser(ctx context.Context, req *models.CreateUserRe
 		return nil, err
 	}
 
-	// If vehicle info provided for field agent, register device
-	if req.VehicleRegistration != "" {
+	// Register a default device for field agents even when vehicle registration is omitted so manager assignment works
+	if req.RoleName == models.RoleFieldAgent || req.VehicleRegistration != "" {
+		vehReg := req.VehicleRegistration
+		if vehReg == "" {
+			vehReg = "UNASSIGNED-" + strings.ToUpper(req.EmployeeCode)
+		}
+		vehType := req.VehicleType
+		if vehType == "" {
+			vehType = "Motorcycle"
+		}
+		eff := req.FuelEfficiencyKmL
+		if eff <= 0 {
+			eff = 35.0
+		}
+		rate := req.FuelRatePerLiter
+		if rate <= 0 {
+			rate = 105.0
+		}
 		insertDeviceQuery := `
 			INSERT INTO devices (hardware_device_id, assigned_user_id, vehicle_registration, vehicle_type, fuel_efficiency_km_l, fuel_rate_per_liter)
 			VALUES ($1, $2, $3, $4, $5, $6);`
 		devHardwareID := fmt.Sprintf("dev-%s", newUserID.String()[:8])
-		_, err = tx.Exec(ctx, insertDeviceQuery, devHardwareID, newUserID, req.VehicleRegistration, req.VehicleType, req.FuelEfficiencyKmL, req.FuelRatePerLiter)
+		_, err = tx.Exec(ctx, insertDeviceQuery, devHardwareID, newUserID, vehReg, vehType, eff, rate)
 		if err != nil {
 			return nil, err
 		}
@@ -878,4 +924,48 @@ func (p *PostgresStore) RecordAuditLog(ctx context.Context, entry *models.AuditL
 
 	_, err := p.db.Pool.Exec(ctx, query, entry.ActorID, entry.ActionType, entry.TargetEntity, targetUUID, entry.Details)
 	return err
+}
+
+func (p *PostgresStore) RecordTelemetry(ctx context.Context, pt *models.TelemetryPoint) error {
+	if pt.RecordedAt.IsZero() {
+		pt.RecordedAt = time.Now().UTC()
+	}
+	query := `
+		INSERT INTO telemetry_history (user_id, employee_code, device_id, lat, lng, speed_kmh, bearing, altitude, accuracy, battery_pct, is_charging, recorded_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);`
+	_, err := p.db.Pool.Exec(ctx, query,
+		pt.UserID, pt.EmployeeCode, pt.DeviceID, pt.Lat, pt.Lng,
+		pt.SpeedKmh, pt.Bearing, pt.Altitude, pt.Accuracy, pt.BatteryPct, pt.IsCharging, pt.RecordedAt,
+	)
+	return err
+}
+
+func (p *PostgresStore) GetTelemetryHistory(ctx context.Context, agentID uuid.UUID, startTime, endTime time.Time) ([]*models.TelemetryPoint, error) {
+	query := `
+		SELECT id, user_id, COALESCE(employee_code, ''), COALESCE(device_id, ''),
+		       lat, lng, speed_kmh, bearing, altitude, accuracy, battery_pct, is_charging, recorded_at
+		FROM telemetry_history
+		WHERE user_id = $1 AND recorded_at >= $2 AND recorded_at <= $3
+		ORDER BY recorded_at ASC
+		LIMIT 5000;`
+	rows, err := p.db.Pool.Query(ctx, query, agentID, startTime, endTime)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	list := make([]*models.TelemetryPoint, 0)
+	for rows.Next() {
+		pt := &models.TelemetryPoint{}
+		if err := rows.Scan(
+			&pt.ID, &pt.UserID, &pt.EmployeeCode, &pt.DeviceID,
+			&pt.Lat, &pt.Lng, &pt.SpeedKmh, &pt.Bearing, &pt.Altitude, &pt.Accuracy,
+			&pt.BatteryPct, &pt.IsCharging, &pt.RecordedAt,
+		); err != nil {
+			return nil, err
+		}
+		pt.TimestampMs = pt.RecordedAt.UnixMilli()
+		list = append(list, pt)
+	}
+	return list, nil
 }

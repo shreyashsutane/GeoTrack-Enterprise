@@ -77,6 +77,7 @@ func main() {
 	mux.Handle("GET /api/v1/reports/export", authMW(managerMW(http.HandlerFunc(h.ExportReportsCSV))))
 	mux.Handle("POST /api/v1/reports/{id}/review", authMW(managerMW(http.HandlerFunc(h.ReviewReport))))
 	mux.Handle("GET /api/v1/manager/assets", authMW(managerMW(http.HandlerFunc(h.GetManagerAssets))))
+	mux.Handle("GET /api/v1/manager/assets/{id}/timeline", authMW(managerMW(http.HandlerFunc(h.GetAgentTimeline))))
 
 	// Super Admin Routes (User Creation & Fleet Assignments & Audit Logs)
 	adminMW := middleware.RequireRoles(models.RoleSuperAdmin)

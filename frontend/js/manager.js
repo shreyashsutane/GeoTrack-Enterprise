@@ -21,9 +21,18 @@ let leafletMarkers = {};
 let hasInitialFittedBounds = false;
 
 // Timeline Playback State
+let allDayTimelineWaypoints = [];
+let activeRouteTitle = '';
 let timelineWaypoints = [];
-let timelineCurrentIndex = 0;
-let timelineProgressRatio = 0; // 0.0 to 1.0
+let timelineSegmentDurations = [];
+let timelineCumulativeDurations = [0];
+let timelineCumulativeDistancesKm = [0];
+let timelineTotalVirtualMs = 0;
+let timelineVirtualTimeMs = 0;
+let timelineTotalDistanceKm = 0;
+let timelineMaxSpeedKmh = 0;
+let timelineTrailStyle = 'ghost'; // 'ghost' | 'dynamic' | 'full'
+let timelineCameraMode = 'fit'; // 'fit' | 'follow' | 'free'
 let isTimelinePlaying = false;
 let playbackSpeed = 1;
 let animFrameId = null;
@@ -33,117 +42,37 @@ let autoCenterLive = true;
 // Map Overlays for Timeline
 let leafletTimelinePath = null;
 let leafletTimelineTraveled = null;
+let leafletTimelineFullSegments = [];
 let leafletTimelineBikeMarker = null;
 let leafletTimelineStopMarkers = [];
 let googleTimelinePath = null;
 let googleTimelineTraveled = null;
+let googleTimelineFullSegments = [];
 let googleTimelineBikeMarker = null;
 let googleTimelineStopMarkers = [];
 
-// 52-Point Realistic Pune Delivery Route Circuit for Rahul Sharma (EMP-104)
-const RAHUL_SHARMA_PUNE_ROUTE = [
-  { lat: 18.5018, lng: 73.8580, time: "09:00 AM", speed: 0, road: "Swargate Hub (Shift Start)", stop: "Shift Began • Vehicle Checked" },
-  { lat: 18.5032, lng: 73.8568, time: "09:04 AM", speed: 24, road: "Swargate Chowk" },
-  { lat: 18.5050, lng: 73.8545, time: "09:08 AM", speed: 32, road: "Shivaji Road South" },
-  { lat: 18.5072, lng: 73.8518, time: "09:14 AM", speed: 36, road: "Tilak Road" },
-  { lat: 18.5098, lng: 73.8488, time: "09:21 AM", speed: 38, road: "SP College / Tilak Road" },
-  { lat: 18.5122, lng: 73.8458, time: "09:28 AM", speed: 28, road: "Hirabaug Chowk" },
-  { lat: 18.5140, lng: 73.8440, time: "09:34 AM", speed: 30, road: "Alka Talkies Chowk" },
-  { lat: 18.5165, lng: 73.8428, time: "09:41 AM", speed: 26, road: "Lakshmi Road Crossing" },
-  { lat: 18.5185, lng: 73.8420, time: "09:48 AM", speed: 22, road: "FC Road South Entry" },
-  { lat: 18.5204, lng: 73.8415, time: "09:55 AM", speed: 0, road: "Hotel Vaishali, FC Road", stop: "Delivery #1: Morning Cafe Consignment" },
-  { lat: 18.5204, lng: 73.8415, time: "10:12 AM", speed: 0, road: "FC Road Customer Bay", stop: "Completed (Duration: 17 mins)" },
-  { lat: 18.5228, lng: 73.8420, time: "10:18 AM", speed: 28, road: "Goodluck Chowk" },
-  { lat: 18.5255, lng: 73.8432, time: "10:25 AM", speed: 35, road: "Fergusson College Main Gate" },
-  { lat: 18.5285, lng: 73.8440, time: "10:32 AM", speed: 38, road: "Dnyaneshwar Paduka Chowk" },
-  { lat: 18.5314, lng: 73.8446, time: "10:40 AM", speed: 42, road: "Shivajinagar Station Flyover" },
-  { lat: 18.5342, lng: 73.8418, time: "10:48 AM", speed: 44, road: "College of Agriculture Gate" },
-  { lat: 18.5365, lng: 73.8385, time: "10:55 AM", speed: 40, road: "University Road Flyover" },
-  { lat: 18.5340, lng: 73.8348, time: "11:03 AM", speed: 35, road: "Ganeshkhind Crossing" },
-  { lat: 18.5305, lng: 73.8310, time: "11:12 AM", speed: 0, road: "ICC Tech Park, SB Road", stop: "Delivery #2: Corporate Dispatch" },
-  { lat: 18.5305, lng: 73.8310, time: "11:38 AM", speed: 0, road: "ICC Tech Tower B", stop: "Completed (Duration: 26 mins)" },
-  { lat: 18.5275, lng: 73.8306, time: "11:45 AM", speed: 30, road: "Senapati Bapat Road South" },
-  { lat: 18.5240, lng: 73.8304, time: "11:52 AM", speed: 34, road: "Symbiosis Institute Junction" },
-  { lat: 18.5205, lng: 73.8302, time: "12:00 PM", speed: 31, road: "Law College Road" },
-  { lat: 18.5170, lng: 73.8298, time: "12:08 PM", speed: 36, road: "FTII / Film Institute" },
-  { lat: 18.5135, lng: 73.8282, time: "12:16 PM", speed: 32, road: "Kanchan Galli Junction" },
-  { lat: 18.5100, lng: 73.8258, time: "12:25 PM", speed: 38, road: "Erandwane Bridge" },
-  { lat: 18.5080, lng: 73.8240, time: "12:35 PM", speed: 42, road: "Karve Road Flyover" },
-  { lat: 18.5065, lng: 73.8205, time: "12:45 PM", speed: 45, road: "Nal Stop Chowk" },
-  { lat: 18.5055, lng: 73.8160, time: "12:56 PM", speed: 39, road: "Paud Phata Road" },
-  { lat: 18.5048, lng: 73.8120, time: "01:08 PM", speed: 35, road: "Ideal Colony / Kothrud" },
-  { lat: 18.5040, lng: 73.8080, time: "01:20 PM", speed: 0, road: "Kothrud Depot Transit Hub", stop: "Delivery #3: Wholesale Handover & Lunch" },
-  { lat: 18.5040, lng: 73.8080, time: "01:45 PM", speed: 0, road: "Kothrud Depot Bay 4", stop: "Completed (Duration: 25 mins)" },
-  { lat: 18.5015, lng: 73.8095, time: "01:54 PM", speed: 28, road: "Vanaz Metro Station" },
-  { lat: 18.4985, lng: 73.8125, time: "02:04 PM", speed: 34, road: "Karve Nagar Canal Link" },
-  { lat: 18.4950, lng: 73.8165, time: "02:15 PM", speed: 36, road: "Dnyaneshwar Colony" },
-  { lat: 18.4920, lng: 73.8190, time: "02:26 PM", speed: 30, road: "Cummins College Road" },
-  { lat: 18.4910, lng: 73.8200, time: "02:38 PM", speed: 25, road: "Karve Nagar Chowk" },
-  { lat: 18.4930, lng: 73.8250, time: "02:50 PM", speed: 34, road: "Hingne Khurd" },
-  { lat: 18.4952, lng: 73.8310, time: "03:05 PM", speed: 38, road: "Sinhagad Road Crossing" },
-  { lat: 18.4975, lng: 73.8390, time: "03:22 PM", speed: 37, road: "Dandekar Bridge Flyover" },
-  { lat: 18.4995, lng: 73.8450, time: "03:38 PM", speed: 32, road: "Mitramandal Chowk" },
-  { lat: 18.5005, lng: 73.8490, time: "03:52 PM", speed: 29, road: "Sarasbaug Ring Road" },
-  { lat: 18.5012, lng: 73.8540, time: "04:10 PM", speed: 24, road: "Jedhe Chowk" },
-  { lat: 18.5018, lng: 73.8580, time: "04:25 PM", speed: 0, road: "Swargate Hub Return", stop: "Shift Closed • Fuel Claim Submitted" }
-];
+function getLocalDateStr(offsetDays = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
 
-// Date-Indexed Historical Routes for Rahul Sharma (EMP-104)
-const RAHUL_SHARMA_ROUTES_BY_DATE = {
-  '2026-11-22': {
-    title: "Pune Urban Delivery Circuit (FC Road & Kothrud)",
-    distance: "42.8 km",
-    movingTime: "2h 45m",
-    idleTime: "45m",
-    fuelAmount: "₹ 128.40",
-    status: "LOGGED",
-    waypoints: RAHUL_SHARMA_PUNE_ROUTE
-  },
-  '2026-11-21': {
-    title: "East Pune Tech Corridor (Camp & Viman Nagar)",
-    distance: "54.2 km",
-    movingTime: "3h 20m",
-    idleTime: "55m",
-    fuelAmount: "₹ 162.60",
-    status: "APPROVED",
-    waypoints: [
-      { lat: 18.5018, lng: 73.8580, time: "09:15 AM", speed: 0, road: "Swargate Hub (Shift Start)", stop: "Shift Started" },
-      { lat: 18.5085, lng: 73.8680, time: "09:30 AM", speed: 32, road: "Shankarsheth Road" },
-      { lat: 18.5140, lng: 73.8760, time: "09:50 AM", speed: 28, road: "Camp / MG Road Hub", stop: "Delivery #1: Commercial Parcel Drop" },
-      { lat: 18.5140, lng: 73.8760, time: "10:10 AM", speed: 0, road: "MG Road Customer Bay", stop: "Completed (20 mins)" },
-      { lat: 18.5240, lng: 73.8880, time: "10:35 AM", speed: 36, road: "Koregaon Park North Main Road" },
-      { lat: 18.5360, lng: 73.8990, time: "11:05 AM", speed: 42, road: "Kalyani Nagar Bridge" },
-      { lat: 18.5580, lng: 73.9140, time: "11:45 AM", speed: 0, road: "Viman Nagar / Phoenix Marketcity", stop: "Delivery #2: Retail Consignment" },
-      { lat: 18.5580, lng: 73.9140, time: "12:15 PM", speed: 0, road: "Phoenix Loading Dock", stop: "Completed (30 mins)" },
-      { lat: 18.5510, lng: 73.8920, time: "01:00 PM", speed: 38, road: "Yerawada Golf Club Road" },
-      { lat: 18.5280, lng: 73.8750, time: "02:15 PM", speed: 34, road: "Pune Railway Station Junction" },
-      { lat: 18.5110, lng: 73.8640, time: "03:40 PM", speed: 26, road: "Timber Market Road" },
-      { lat: 18.5018, lng: 73.8580, time: "04:45 PM", speed: 0, road: "Swargate Hub Return", stop: "Shift Concluded • Approved" }
-    ]
-  },
-  '2026-11-20': {
-    title: "North-West Logistics Track (Aundh & Hinjewadi)",
-    distance: "48.5 km",
-    movingTime: "3h 05m",
-    idleTime: "40m",
-    fuelAmount: "₹ 145.50",
-    status: "APPROVED",
-    waypoints: [
-      { lat: 18.5018, lng: 73.8580, time: "09:00 AM", speed: 0, road: "Swargate Hub (Shift Start)", stop: "Shift Started" },
-      { lat: 18.5314, lng: 73.8446, time: "09:40 AM", speed: 35, road: "Shivajinagar" },
-      { lat: 18.5600, lng: 73.8050, time: "10:20 AM", speed: 44, road: "Aundh Parihar Chowk", stop: "Delivery #1: Express Package" },
-      { lat: 18.5600, lng: 73.8050, time: "10:40 AM", speed: 0, road: "Aundh Distribution Bay", stop: "Completed (20 mins)" },
-      { lat: 18.5590, lng: 73.7800, time: "11:15 AM", speed: 48, road: "Baner Road Expressway" },
-      { lat: 18.5910, lng: 73.7380, time: "12:00 PM", speed: 0, road: "Hinjewadi Phase 1 Tech Hub", stop: "Delivery #2: IT Hardware Supply" },
-      { lat: 18.5910, lng: 73.7380, time: "12:35 PM", speed: 0, road: "Hinjewadi Phase 1 Gate 2", stop: "Completed (35 mins)" },
-      { lat: 18.5980, lng: 73.7650, time: "01:30 PM", speed: 42, road: "Wakad Chowk" },
-      { lat: 18.5410, lng: 73.7920, time: "02:45 PM", speed: 36, road: "Pashan Circle" },
-      { lat: 18.5018, lng: 73.8580, time: "04:15 PM", speed: 0, road: "Swargate Hub Return", stop: "Shift Closed" }
-    ]
-  }
-};
+function initDateChips() {
+  const fmtChip = (offset) => {
+    const d = new Date();
+    d.setDate(d.getDate() + offset);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+  const todayEl = document.getElementById('chipToday');
+  const yestEl = document.getElementById('chipYesterday');
+  const dbEl = document.getElementById('chipDayBefore');
+  if (todayEl) todayEl.textContent = `Today (${fmtChip(0)})`;
+  if (yestEl) yestEl.textContent = fmtChip(-1);
+  if (dbEl) dbEl.textContent = fmtChip(-2);
+}
 
-let currentSelectedDate = '2026-11-22';
+let currentSelectedDate = getLocalDateStr(0);
 
 function logout() {
   api.clearSession();
@@ -230,6 +159,11 @@ async function initMap(apiKey = '') {
     }
   }
 
+  window.gm_authFailure = () => {
+    console.warn('[Map] Google Maps authentication failed; falling back to OpenStreetMap.');
+    initLeafletFallback();
+  };
+
   initLeafletFallback();
 }
 
@@ -239,10 +173,10 @@ function initLeafletFallback() {
   if (!container) return;
   container.innerHTML = '';
 
-  leafletMap = L.map('map', { zoomControl: true }).setView([18.5204, 73.8567], 13);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-    subdomains: 'abcd',
+  leafletMap = L.map('map', { zoomControl: false }).setView([18.5204, 73.8567], 13);
+  L.control.zoom({ position: 'topright' }).addTo(leafletMap);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors',
     maxZoom: 19
   }).addTo(leafletMap);
 
@@ -327,12 +261,8 @@ function selectAgent(idx, initialSubView = null) {
     badge.textContent = 'OFFLINE';
   }
 
-  // Check if Rahul Sharma (EMP-104) -> enable simulate button
-  const isRahul = selectedAgent.employee_code === 'EMP-104';
-  const rahulBtnBox = document.getElementById('rahulSimulateContainer');
-  if (rahulBtnBox) rahulBtnBox.style.display = isRahul ? 'block' : 'none';
-
-  // Set default date input value to today
+  // Set default date input value to today & refresh chip dates
+  initDateChips();
   const dateInput = document.getElementById('timelineDateInput');
   if (dateInput) dateInput.value = currentSelectedDate;
 
@@ -428,19 +358,19 @@ function exitTimelineMode() {
 window.exitTimelineMode = exitTimelineMode;
 
 function selectShiftDate(type) {
-  let dateStr = '2026-11-22';
+  let dateStr = getLocalDateStr(0);
   document.querySelectorAll('.date-chip').forEach(c => c.classList.remove('active'));
 
   if (type === 'TODAY') {
-    dateStr = '2026-11-22';
+    dateStr = getLocalDateStr(0);
     const chip = document.getElementById('chipToday');
     if (chip) chip.classList.add('active');
   } else if (type === 'YESTERDAY') {
-    dateStr = '2026-11-21';
+    dateStr = getLocalDateStr(-1);
     const chip = document.getElementById('chipYesterday');
     if (chip) chip.classList.add('active');
   } else if (type === 'DAY_BEFORE') {
-    dateStr = '2026-11-20';
+    dateStr = getLocalDateStr(-2);
     const chip = document.getElementById('chipDayBefore');
     if (chip) chip.classList.add('active');
   }
@@ -456,13 +386,13 @@ window.selectShiftDate = selectShiftDate;
 function onDatePickerChange(dateVal) {
   if (!dateVal) return;
   document.querySelectorAll('.date-chip').forEach(c => c.classList.remove('active'));
-  if (dateVal === '2026-11-22') {
+  if (dateVal === getLocalDateStr(0)) {
     const chip = document.getElementById('chipToday');
     if (chip) chip.classList.add('active');
-  } else if (dateVal === '2026-11-21') {
+  } else if (dateVal === getLocalDateStr(-1)) {
     const chip = document.getElementById('chipYesterday');
     if (chip) chip.classList.add('active');
-  } else if (dateVal === '2026-11-20') {
+  } else if (dateVal === getLocalDateStr(-2)) {
     const chip = document.getElementById('chipDayBefore');
     if (chip) chip.classList.add('active');
   }
@@ -472,7 +402,61 @@ function onDatePickerChange(dateVal) {
 }
 window.onDatePickerChange = onDatePickerChange;
 
-function loadShiftRouteForDate(dateStr) {
+function formatDurationCompact(totalSecs) {
+  const mins = Math.round(totalSecs / 60);
+  if (mins < 60) return `${mins}m`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
+function showEmptyTimelineState(dateStr, msg) {
+  stopTimelinePlayback();
+  clearTimelineMapLayers();
+  allDayTimelineWaypoints = [];
+  timelineWaypoints = [];
+  timelineTotalVirtualMs = 0;
+  timelineVirtualTimeMs = 0;
+  timelineTotalDistanceKm = 0;
+  timelineMaxSpeedKmh = 0;
+
+  document.getElementById('timelineShiftTitle').innerHTML = `<i class="fa-regular fa-calendar-check" style="color:var(--accent-cyan); margin-right:6px;"></i> Shift Route: ${dateStr}`;
+  document.getElementById('timelineDistanceVal').textContent = '0.0 km';
+  document.getElementById('timelineMovingTimeVal').textContent = '0m';
+  document.getElementById('timelineIdleTimeVal').textContent = '0m';
+  document.getElementById('timelineFuelVal').textContent = '₹ 0.00';
+
+  const statusBadge = document.getElementById('timelineShiftStatus');
+  if (statusBadge) {
+    statusBadge.textContent = 'NO DATA';
+    statusBadge.className = 'badge badge-submitted';
+  }
+
+  document.getElementById('playerLegTitle').innerHTML = `<i class="fa-solid fa-route" style="color:var(--text-muted);"></i> No Recorded Route (${dateStr})`;
+  document.getElementById('playerClock').textContent = '00:00:00';
+  const endClockEl = document.getElementById('playerEndClock');
+  if (endClockEl) endClockEl.textContent = '00:00:00';
+  document.getElementById('scrubStart').textContent = '00:00:00';
+  document.getElementById('scrubEnd').textContent = '00:00:00';
+  document.getElementById('playerSpeed').textContent = '0.0 km/h';
+  const maxSpdEl = document.getElementById('playerMaxSpeed');
+  if (maxSpdEl) maxSpdEl.textContent = '0 km/h';
+  document.getElementById('playerDistance').textContent = '0.0 / 0.0 km';
+  document.getElementById('timelineScrubber').value = 0;
+  document.getElementById('timelineProgressFill').style.width = '0%';
+
+  const list = document.getElementById('timelineWaypointsList');
+  if (list) {
+    list.innerHTML = `
+      <div style="text-align:center; padding:22px 14px; color:var(--text-secondary); font-size:0.82rem; border:1px dashed var(--border-color); border-radius:10px;">
+        <i class="fa-solid fa-satellite-dish" style="font-size:1.4rem; color:var(--text-muted); margin-bottom:8px; display:block;"></i>
+        ${escapeHtml(msg)}
+      </div>
+    `;
+  }
+}
+
+async function loadShiftRouteForDate(dateStr) {
   if (!selectedAgent) return;
 
   const datePill = document.getElementById('playerDatePill');
@@ -480,43 +464,63 @@ function loadShiftRouteForDate(dateStr) {
     datePill.innerHTML = `<i class="fa-solid fa-calendar-day" style="color:var(--accent-orange); margin-right:4px;"></i> ${dateStr}`;
   }
 
-  // Rahul Sharma specific historical routes
-  if (selectedAgent.employee_code === 'EMP-104') {
-    const routeObj = RAHUL_SHARMA_ROUTES_BY_DATE[dateStr] || {
-      title: `Pune Central Shift (${dateStr})`,
-      distance: "40.5 km",
-      movingTime: "2h 35m",
-      idleTime: "30m",
-      fuelAmount: "₹ 121.50",
-      status: "LOGGED",
-      waypoints: RAHUL_SHARMA_PUNE_ROUTE
-    };
+  const startMs = new Date(`${dateStr}T00:00:00`).getTime();
+  const endMs = new Date(`${dateStr}T23:59:59.999`).getTime();
 
-    document.getElementById('timelineShiftTitle').innerHTML = `<i class="fa-regular fa-calendar-check" style="color:var(--accent-cyan); margin-right:6px;"></i> Shift Route: ${dateStr}`;
-    document.getElementById('timelineDistanceVal').textContent = routeObj.distance;
-    document.getElementById('timelineMovingTimeVal').textContent = routeObj.movingTime;
-    document.getElementById('timelineIdleTimeVal').textContent = routeObj.idleTime;
-    document.getElementById('timelineFuelVal').textContent = routeObj.fuelAmount;
-    
-    const statusBadge = document.getElementById('timelineShiftStatus');
-    if (statusBadge) {
-      statusBadge.textContent = routeObj.status;
-      statusBadge.className = routeObj.status === 'APPROVED' ? 'badge badge-approved' : 'badge badge-submitted';
+  try {
+    const rawPoints = await api.getAgentTimeline(selectedAgent.id, dateStr, startMs, endMs);
+    const points = (rawPoints || []).filter(p => typeof p.lat === 'number' && typeof p.lng === 'number');
+
+    if (points.length < 2) {
+      const msg = points.length === 1
+        ? `Only 1 GPS ping recorded on ${dateStr}. Keep tracking active to build a route.`
+        : `No real GPS telemetry recorded for ${selectedAgent.full_name} on ${dateStr}. Start tracking in the mobile app or Agent portal.`;
+      showEmptyTimelineState(dateStr, msg);
+      return;
     }
 
-    loadTimelineRoute(routeObj.waypoints, `${routeObj.title} [${dateStr}]`);
-    return;
+    let totalDistKm = 0;
+    let movingSecs = 0;
+    let idleSecs = 0;
+    const waypoints = points.map((p, idx) => {
+      const ts = p.timestamp || (p.recorded_at ? new Date(p.recorded_at).getTime() : Date.now());
+      const spd = Number(p.speed_kmh || 0);
+      if (idx > 0) {
+        const prev = points[idx - 1];
+        const prevTs = prev.timestamp || (prev.recorded_at ? new Date(prev.recorded_at).getTime() : ts);
+        const dtSec = Math.max(0, (ts - prevTs) / 1000);
+        totalDistKm += haversineKm({ lat: prev.lat, lng: prev.lng }, { lat: p.lat, lng: p.lng });
+        if (spd > 2.5) movingSecs += dtSec;
+        else idleSecs += dtSec;
+      }
+      return {
+        lat: p.lat,
+        lng: p.lng,
+        timestamp: ts,
+        speed: spd,
+        road: `${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`,
+        stop: idx === 0 ? 'Shift Start Ping' : (idx === points.length - 1 ? 'Latest Ping' : '')
+      };
+    });
+
+    const fuelAmount = (totalDistKm / 35.0) * 105.0;
+    document.getElementById('timelineShiftTitle').innerHTML = `<i class="fa-regular fa-calendar-check" style="color:var(--accent-cyan); margin-right:6px;"></i> Shift Route: ${dateStr}`;
+    document.getElementById('timelineDistanceVal').textContent = `${totalDistKm.toFixed(1)} km`;
+    document.getElementById('timelineMovingTimeVal').textContent = formatDurationCompact(movingSecs);
+    document.getElementById('timelineIdleTimeVal').textContent = formatDurationCompact(idleSecs);
+    document.getElementById('timelineFuelVal').textContent = `₹ ${fuelAmount.toFixed(2)}`;
+
+    const statusBadge = document.getElementById('timelineShiftStatus');
+    if (statusBadge) {
+      statusBadge.textContent = `${points.length} PINGS`;
+      statusBadge.className = 'badge badge-approved';
+    }
+
+    loadTimelineRoute(waypoints, `${selectedAgent.full_name} [${dateStr}]`);
+  } catch (err) {
+    console.warn('Failed to load agent timeline:', err);
+    showEmptyTimelineState(dateStr, `Unable to fetch timeline for ${dateStr}: ${err.message}`);
   }
-
-  // Other Field Agents (EMP-105 to EMP-109)
-  const agentTrack = generateSynthesizedRouteForAgentAndDate(selectedAgent, dateStr);
-  document.getElementById('timelineShiftTitle').innerHTML = `<i class="fa-regular fa-calendar-check" style="color:var(--accent-cyan); margin-right:6px;"></i> Shift Route: ${dateStr}`;
-  document.getElementById('timelineDistanceVal').textContent = agentTrack.distance;
-  document.getElementById('timelineMovingTimeVal').textContent = agentTrack.movingTime;
-  document.getElementById('timelineIdleTimeVal').textContent = agentTrack.idleTime;
-  document.getElementById('timelineFuelVal').textContent = agentTrack.fuelAmount;
-
-  loadTimelineRoute(agentTrack.waypoints, `${selectedAgent.full_name} [${dateStr}]`);
 }
 window.loadShiftRouteForDate = loadShiftRouteForDate;
 
@@ -579,85 +583,222 @@ window.focusAgentLiveMarker = focusAgentLiveMarker;
 // Timeline Route Engine & GSAP Interpolation
 // ==============================================================================
 
-function runRahulSimulation() {
-  if (selectedAgent && selectedAgent.employee_code === 'EMP-104') {
-    selectShiftDate('TODAY');
-    togglePlayPause(true); // Auto-start
+function parseTimeToMs(timeStr, dateStr, fallbackMs) {
+  if (typeof timeStr === 'number') return timeStr;
+  if (!timeStr) return fallbackMs;
+  const m = String(timeStr).trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+  if (!m) return fallbackMs;
+  let hrs = parseInt(m[1], 10);
+  const mins = parseInt(m[2], 10);
+  const secs = parseInt(m[3] || '0', 10);
+  const ampm = (m[4] || '').toUpperCase();
+  if (ampm === 'PM' && hrs < 12) hrs += 12;
+  if (ampm === 'AM' && hrs === 12) hrs = 0;
+  const base = new Date((dateStr || '2026-11-22') + 'T00:00:00');
+  base.setHours(hrs, mins, secs, 0);
+  return base.getTime();
+}
+
+function formatTimeHHMMSS(ms) {
+  const d = new Date(ms);
+  const pad = n => String(n).padStart(2, '0');
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+function haversineKm(p1, p2) {
+  const R = 6371;
+  const dLat = (p2.lat - p1.lat) * Math.PI / 180;
+  const dLon = (p2.lng - p1.lng) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(p1.lat * Math.PI / 180) * Math.cos(p2.lat * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function getSpeedColor(speed) {
+  if (speed >= 40) return '#ff5252';
+  if (speed >= 28) return '#ff9100';
+  if (speed >= 10) return '#00e676';
+  return '#00e5ff';
+}
+
+function loadTimelineRoute(waypoints, title, isFiltered = false) {
+  const normalized = (waypoints || []).map((w, idx) => ({
+    ...w,
+    timestamp: w.timestamp || parseTimeToMs(w.time, currentSelectedDate, Date.now() + idx * 60000)
+  })).sort((a, b) => a.timestamp - b.timestamp);
+
+  if (!isFiltered) {
+    allDayTimelineWaypoints = normalized;
+    activeRouteTitle = title;
+    const fromEl = document.getElementById('timelineTimeFrom');
+    const toEl = document.getElementById('timelineTimeTo');
+    if (normalized.length >= 2) {
+      if (fromEl) fromEl.value = formatTimeHHMMSS(normalized[0].timestamp);
+      if (toEl) toEl.value = formatTimeHHMMSS(normalized[normalized.length - 1].timestamp);
+    }
+  }
+
+  renderTimelineWithPoints(normalized, title);
+}
+
+function applyTimelineTimeFilter() {
+  if (!allDayTimelineWaypoints || allDayTimelineWaypoints.length < 2) return;
+  const fromEl = document.getElementById('timelineTimeFrom');
+  const toEl = document.getElementById('timelineTimeTo');
+  const fromVal = fromEl ? fromEl.value : '';
+  const toVal = toEl ? toEl.value : '';
+  if (!fromVal || !toVal) {
+    renderTimelineWithPoints(allDayTimelineWaypoints, activeRouteTitle);
+    return;
+  }
+  const fromTs = parseTimeToMs(fromVal, currentSelectedDate, 0);
+  const toTs = parseTimeToMs(toVal, currentSelectedDate, Infinity) + 999;
+  const filtered = allDayTimelineWaypoints.filter(p => p.timestamp >= fromTs && p.timestamp <= toTs);
+  if (filtered.length < 2) {
+    alert(`No waypoints found between ${fromVal} and ${toVal}. Broaden the time range.`);
+    return;
+  }
+  renderTimelineWithPoints(filtered, activeRouteTitle);
+}
+window.applyTimelineTimeFilter = applyTimelineTimeFilter;
+
+function resetTimelineTimeRange() {
+  if (!allDayTimelineWaypoints || allDayTimelineWaypoints.length < 2) return;
+  const fromEl = document.getElementById('timelineTimeFrom');
+  const toEl = document.getElementById('timelineTimeTo');
+  if (fromEl) fromEl.value = formatTimeHHMMSS(allDayTimelineWaypoints[0].timestamp);
+  if (toEl) toEl.value = formatTimeHHMMSS(allDayTimelineWaypoints[allDayTimelineWaypoints.length - 1].timestamp);
+  renderTimelineWithPoints(allDayTimelineWaypoints, activeRouteTitle);
+}
+window.resetTimelineTimeRange = resetTimelineTimeRange;
+
+function onTrailStyleChange(style) {
+  timelineTrailStyle = style || 'ghost';
+  const ratio = timelineTotalVirtualMs > 0 ? (timelineVirtualTimeMs / timelineTotalVirtualMs) : 0;
+  drawTimelineMapLayers(ratio);
+}
+window.onTrailStyleChange = onTrailStyleChange;
+
+function onCameraModeChange(mode) {
+  timelineCameraMode = mode || 'fit';
+  if (timelineCameraMode === 'fit' && timelineWaypoints.length >= 2) {
+    fitTimelineBounds();
+  } else if (timelineCameraMode === 'follow') {
+    const ratio = timelineTotalVirtualMs > 0 ? (timelineVirtualTimeMs / timelineTotalVirtualMs) : 0;
+    updatePlaybackVisuals(ratio);
   }
 }
-window.runRahulSimulation = runRahulSimulation;
+window.onCameraModeChange = onCameraModeChange;
 
-function generateSynthesizedRouteForAgentAndDate(agent, dateStr) {
-  const baseLat = agent.lat || 18.5204;
-  const baseLng = agent.lng || 73.8567;
-
-  // Pseudo-seed based on date
-  const dayOffset = dateStr.endsWith('21') ? 0.015 : dateStr.endsWith('20') ? -0.012 : 0;
-  const distanceKm = (38.5 + (dateStr.charCodeAt(dateStr.length - 1) % 15)).toFixed(1);
-  const fuel = (distanceKm * 3.0).toFixed(2);
-
-  return {
-    distance: `${distanceKm} km`,
-    movingTime: "2h 30m",
-    idleTime: "40m",
-    fuelAmount: `₹ ${fuel}`,
-    waypoints: [
-      { lat: baseLat - 0.02 + dayOffset, lng: baseLng - 0.02 + dayOffset, time: "09:15 AM", speed: 0, road: "District Base Logistics Hub", stop: "Shift Began" },
-      { lat: baseLat - 0.012 + dayOffset, lng: baseLng - 0.010 + dayOffset, time: "09:45 AM", speed: 32, road: "Main Arterial Avenue" },
-      { lat: baseLat - 0.005 + dayOffset, lng: baseLng - 0.003 + dayOffset, time: "10:30 AM", speed: 28, road: "Commercial Zone Hub", stop: "Delivery #1: Client Dispatch" },
-      { lat: baseLat - 0.005 + dayOffset, lng: baseLng - 0.003 + dayOffset, time: "10:55 AM", speed: 0, road: "Client Dock", stop: "Stop Duration: 25 mins" },
-      { lat: baseLat + 0.008 + dayOffset, lng: baseLng + 0.006 + dayOffset, time: "11:45 AM", speed: 38, road: "Express Transit Ring" },
-      { lat: baseLat + 0.018 + dayOffset, lng: baseLng + 0.015 + dayOffset, time: "01:20 PM", speed: 0, road: "Regional Fulfillment Center", stop: "Delivery #2: Wholesale Handover" },
-      { lat: baseLat + 0.018 + dayOffset, lng: baseLng + 0.015 + dayOffset, time: "01:50 PM", speed: 0, road: "Center Bay 2", stop: "Stop Duration: 30 mins" },
-      { lat: baseLat + 0.010 + dayOffset, lng: baseLng + 0.008 + dayOffset, time: "03:10 PM", speed: 35, road: "Industrial Connector Highway" },
-      { lat: baseLat - 0.02 + dayOffset, lng: baseLng - 0.02 + dayOffset, time: "04:30 PM", speed: 0, road: "District Base Logistics Hub Return", stop: "Shift Concluded" }
-    ]
-  };
+function fitTimelineBounds() {
+  if (!timelineWaypoints || timelineWaypoints.length < 2) return;
+  if (isGoogleMapsActive && googleMap) {
+    const bounds = new google.maps.LatLngBounds();
+    timelineWaypoints.forEach(w => bounds.extend({ lat: w.lat, lng: w.lng }));
+    googleMap.fitBounds(bounds, { top: 50, bottom: 160, left: 50, right: 50 });
+  } else if (leafletMap) {
+    leafletMap.fitBounds(timelineWaypoints.map(w => [w.lat, w.lng]), { padding: [50, 50], maxZoom: 16 });
+  }
 }
 
-function loadTimelineRoute(waypoints, title) {
+function renderTimelineWithPoints(waypoints, title) {
   stopTimelinePlayback();
   clearTimelineMapLayers();
 
   timelineWaypoints = waypoints || [];
   if (timelineWaypoints.length < 2) return;
 
-  timelineCurrentIndex = 0;
-  timelineProgressRatio = 0;
+  // Build compressed virtual timeline durations + cumulative distance + max speed
+  timelineSegmentDurations = [];
+  timelineCumulativeDurations = [0];
+  timelineCumulativeDistancesKm = [0];
+  let runningMs = 0;
+  let runningKm = 0;
+  let maxSpd = 0;
 
-  document.getElementById('playerLegTitle').innerHTML = `<i class="fa-solid fa-route" style="color:var(--accent-cyan);"></i> ${title}`;
-  document.getElementById('scrubStart').textContent = timelineWaypoints[0].time;
-  document.getElementById('scrubEnd').textContent = timelineWaypoints[timelineWaypoints.length - 1].time;
+  for (let i = 0; i < timelineWaypoints.length - 1; i++) {
+    const p1 = timelineWaypoints[i];
+    const p2 = timelineWaypoints[i + 1];
+    const realGapMs = Math.max(200, (p2.timestamp || 0) - (p1.timestamp || 0));
+    let segMs = Math.min(1200, Math.max(400, realGapMs / 600));
+    if ((p1.speed || 0) < 1.0 && (p2.speed || 0) < 1.0) {
+      segMs = Math.min(segMs, 600);
+    }
+    timelineSegmentDurations.push(segMs);
+    runningMs += segMs;
+    timelineCumulativeDurations.push(runningMs);
+
+    runningKm += haversineKm(p1, p2);
+    timelineCumulativeDistancesKm.push(runningKm);
+    maxSpd = Math.max(maxSpd, p1.speed || 0, p2.speed || 0);
+  }
+
+  timelineTotalVirtualMs = Math.max(1, runningMs);
+  timelineVirtualTimeMs = 0;
+  timelineTotalDistanceKm = runningKm;
+  timelineMaxSpeedKmh = maxSpd;
+
+  const startStr = formatTimeHHMMSS(timelineWaypoints[0].timestamp);
+  const endStr = formatTimeHHMMSS(timelineWaypoints[timelineWaypoints.length - 1].timestamp);
+
+  document.getElementById('playerLegTitle').innerHTML = `<i class="fa-solid fa-route" style="color:var(--accent-cyan);"></i> ${escapeHtml(title)}`;
+  document.getElementById('scrubStart').textContent = startStr;
+  document.getElementById('scrubEnd').textContent = endStr;
+  const endClockEl = document.getElementById('playerEndClock');
+  if (endClockEl) endClockEl.textContent = endStr;
+  const maxSpdEl = document.getElementById('playerMaxSpeed');
+  if (maxSpdEl) maxSpdEl.textContent = `${timelineMaxSpeedKmh.toFixed(0)} km/h`;
+  const sideDistEl = document.getElementById('timelineDistanceVal');
+  if (sideDistEl) sideDistEl.textContent = `${timelineTotalDistanceKm.toFixed(1)} km`;
   document.getElementById('timelineScrubber').value = 0;
   document.getElementById('timelineProgressFill').style.width = '0%';
 
-  // Render Waypoint checkpoints in Sidebar
   renderTimelineWaypointsList();
+  drawTimelineMapLayers(0);
+}
 
-  // Draw Map Polyline
+function drawTimelineMapLayers(initialRatio = 0) {
+  clearTimelineMapLayers();
+  if (!timelineWaypoints || timelineWaypoints.length < 2) return;
+
   const latLngs = timelineWaypoints.map(w => [w.lat, w.lng]);
   const gLatLngs = timelineWaypoints.map(w => ({ lat: w.lat, lng: w.lng }));
 
   if (isGoogleMapsActive && googleMap) {
-    googleTimelinePath = new google.maps.Polyline({
-      path: gLatLngs,
-      geodesic: true,
-      strokeColor: "#334e87",
-      strokeOpacity: 0.5,
-      strokeWeight: 4,
-      map: googleMap
-    });
+    if (timelineTrailStyle === 'full') {
+      for (let i = 0; i < timelineWaypoints.length - 1; i++) {
+        const avg = ((timelineWaypoints[i].speed || 0) + (timelineWaypoints[i + 1].speed || 0)) / 2;
+        googleTimelineFullSegments.push(new google.maps.Polyline({
+          path: [gLatLngs[i], gLatLngs[i + 1]],
+          geodesic: true,
+          strokeColor: getSpeedColor(avg),
+          strokeOpacity: 0.9,
+          strokeWeight: 5,
+          map: googleMap
+        }));
+      }
+    } else if (timelineTrailStyle === 'ghost') {
+      googleTimelinePath = new google.maps.Polyline({
+        path: gLatLngs,
+        geodesic: true,
+        strokeColor: "#6c8299",
+        strokeOpacity: 0.3,
+        strokeWeight: 4,
+        map: googleMap
+      });
+    }
 
-    googleTimelineTraveled = new google.maps.Polyline({
-      path: [gLatLngs[0]],
-      geodesic: true,
-      strokeColor: "#00e5ff",
-      strokeOpacity: 0.95,
-      strokeWeight: 5,
-      map: googleMap
-    });
+    if (timelineTrailStyle === 'dynamic' || timelineTrailStyle === 'ghost') {
+      googleTimelineTraveled = new google.maps.Polyline({
+        path: [gLatLngs[0]],
+        geodesic: true,
+        strokeColor: "#00e5ff",
+        strokeOpacity: 0.95,
+        strokeWeight: 5,
+        map: googleMap
+      });
+    }
 
-    // Custom Moving Bike Marker
     googleTimelineBikeMarker = new google.maps.Marker({
       position: gLatLngs[0],
       map: googleMap,
@@ -672,7 +813,6 @@ function loadTimelineRoute(waypoints, title) {
       }
     });
 
-    // Stop Pins
     timelineWaypoints.forEach((w) => {
       if (w.stop) {
         const marker = new google.maps.Marker({
@@ -686,32 +826,38 @@ function loadTimelineRoute(waypoints, title) {
             strokeWeight: 2,
             strokeColor: "#ffffff"
           },
-          title: `${w.time} - ${w.stop}`
+          title: `${formatTimeHHMMSS(w.timestamp)} - ${w.stop}`
         });
         googleTimelineStopMarkers.push(marker);
       }
     });
 
-    // Fit map bounds
-    const bounds = new google.maps.LatLngBounds();
-    gLatLngs.forEach(pt => bounds.extend(pt));
-    googleMap.fitBounds(bounds, { top: 50, bottom: 120, left: 50, right: 50 });
-
+    if (timelineCameraMode === 'fit') fitTimelineBounds();
   } else if (leafletMap) {
-    // Full Planned Route (faint dark line)
-    leafletTimelinePath = L.polyline(latLngs, {
-      color: 'rgba(0, 229, 255, 0.25)',
-      weight: 4,
-      dashArray: '4, 8'
-    }).addTo(leafletMap);
+    if (timelineTrailStyle === 'full') {
+      for (let i = 0; i < timelineWaypoints.length - 1; i++) {
+        const avg = ((timelineWaypoints[i].speed || 0) + (timelineWaypoints[i + 1].speed || 0)) / 2;
+        leafletTimelineFullSegments.push(L.polyline([latLngs[i], latLngs[i + 1]], {
+          color: getSpeedColor(avg),
+          weight: 5,
+          opacity: 0.9
+        }).addTo(leafletMap));
+      }
+    } else if (timelineTrailStyle === 'ghost') {
+      leafletTimelinePath = L.polyline(latLngs, {
+        color: 'rgba(0, 229, 255, 0.28)',
+        weight: 4,
+        dashArray: '4, 8'
+      }).addTo(leafletMap);
+    }
 
-    // Traveled Progress Route (solid bright cyan)
-    leafletTimelineTraveled = L.polyline([latLngs[0]], {
-      color: '#00e5ff',
-      weight: 5
-    }).addTo(leafletMap);
+    if (timelineTrailStyle === 'dynamic' || timelineTrailStyle === 'ghost') {
+      leafletTimelineTraveled = L.polyline([latLngs[0]], {
+        color: '#00e5ff',
+        weight: 5
+      }).addTo(leafletMap);
+    }
 
-    // Rotating Motorcycle Marker
     const bikeIcon = L.divIcon({
       className: 'timeline-bike-marker',
       html: `
@@ -722,10 +868,8 @@ function loadTimelineRoute(waypoints, title) {
       iconSize: [36, 36],
       iconAnchor: [18, 18]
     });
-
     leafletTimelineBikeMarker = L.marker(latLngs[0], { icon: bikeIcon }).addTo(leafletMap);
 
-    // Stop Pin Markers
     timelineWaypoints.forEach((w) => {
       if (w.stop) {
         const stopIcon = L.divIcon({
@@ -739,21 +883,23 @@ function loadTimelineRoute(waypoints, title) {
           iconAnchor: [11, 11]
         });
         const m = L.marker([w.lat, w.lng], { icon: stopIcon }).addTo(leafletMap);
-        m.bindPopup(`<strong style="color:#111;">${w.time}</strong><br><span style="color:#444;">${w.stop}</span>`);
+        m.bindPopup(`<strong style="color:#111;">${formatTimeHHMMSS(w.timestamp)}</strong><br><span style="color:#444;">${escapeHtml(w.stop)}</span>`);
         leafletTimelineStopMarkers.push(m);
       }
     });
 
-    leafletMap.fitBounds(latLngs, { padding: [50, 50], maxZoom: 16 });
+    if (timelineCameraMode === 'fit') fitTimelineBounds();
   }
 
-  updatePlaybackVisuals(0);
+  updatePlaybackVisuals(initialRatio);
 }
 
 function clearTimelineMapLayers() {
   if (googleTimelinePath) { googleTimelinePath.setMap(null); googleTimelinePath = null; }
   if (googleTimelineTraveled) { googleTimelineTraveled.setMap(null); googleTimelineTraveled = null; }
   if (googleTimelineBikeMarker) { googleTimelineBikeMarker.setMap(null); googleTimelineBikeMarker = null; }
+  googleTimelineFullSegments.forEach(s => s.setMap(null));
+  googleTimelineFullSegments = [];
   googleTimelineStopMarkers.forEach(m => m.setMap(null));
   googleTimelineStopMarkers = [];
 
@@ -761,6 +907,8 @@ function clearTimelineMapLayers() {
     if (leafletTimelinePath) { leafletMap.removeLayer(leafletTimelinePath); leafletTimelinePath = null; }
     if (leafletTimelineTraveled) { leafletMap.removeLayer(leafletTimelineTraveled); leafletTimelineTraveled = null; }
     if (leafletTimelineBikeMarker) { leafletMap.removeLayer(leafletTimelineBikeMarker); leafletTimelineBikeMarker = null; }
+    leafletTimelineFullSegments.forEach(s => leafletMap.removeLayer(s));
+    leafletTimelineFullSegments = [];
     leafletTimelineStopMarkers.forEach(m => leafletMap.removeLayer(m));
     leafletTimelineStopMarkers = [];
   }
@@ -772,10 +920,11 @@ function renderTimelineWaypointsList() {
 
   container.innerHTML = timelineWaypoints.map((w, i) => {
     const isStop = Boolean(w.stop);
+    const timeFormatted = formatTimeHHMMSS(w.timestamp);
     return `
       <div class="waypoint-item ${isStop ? 'is-stop' : ''}" onclick="jumpToWaypoint(${i})">
-        <div style="min-width:60px; font-family:monospace; color:${isStop ? 'var(--accent-orange)' : 'var(--text-secondary)'}; font-weight:700;">
-          ${w.time}
+        <div style="min-width:66px; font-family:monospace; color:${isStop ? 'var(--accent-orange)' : 'var(--text-secondary)'}; font-weight:700;">
+          ${timeFormatted}
         </div>
         <div style="flex:1;">
           <div style="font-weight:600; color:#fff;">${escapeHtml(w.road)}</div>
@@ -788,9 +937,11 @@ function renderTimelineWaypointsList() {
 }
 
 function jumpToWaypoint(index) {
-  if (!timelineWaypoints.length) return;
-  const ratio = index / (timelineWaypoints.length - 1);
-  onScrubInput(ratio * 100);
+  if (!timelineWaypoints.length || timelineTotalVirtualMs <= 0) return;
+  const clamped = Math.max(0, Math.min(timelineWaypoints.length - 1, index));
+  const ratio = (timelineCumulativeDurations[clamped] || 0) / timelineTotalVirtualMs;
+  timelineVirtualTimeMs = ratio * timelineTotalVirtualMs;
+  updatePlaybackVisuals(ratio);
 }
 window.jumpToWaypoint = jumpToWaypoint;
 
@@ -803,11 +954,14 @@ function togglePlayPause(forcePlay = null) {
 
   const icon = document.getElementById('playPauseIcon');
   if (isTimelinePlaying) {
-    icon.className = 'fa-solid fa-pause';
+    if (timelineVirtualTimeMs >= timelineTotalVirtualMs - 10) {
+      timelineVirtualTimeMs = 0;
+    }
+    if (icon) icon.className = 'fa-solid fa-pause';
     lastAnimTimestamp = performance.now();
     animFrameId = requestAnimationFrame(timelineAnimationTick);
   } else {
-    icon.className = 'fa-solid fa-play';
+    if (icon) icon.className = 'fa-solid fa-play';
     if (animFrameId) cancelAnimationFrame(animFrameId);
     animFrameId = null;
   }
@@ -823,65 +977,73 @@ function stopTimelinePlayback() {
 }
 
 function setPlaySpeed(multiplier) {
-  playbackSpeed = multiplier;
+  playbackSpeed = Math.max(1, multiplier);
   document.querySelectorAll('.speed-btn').forEach(b => {
-    b.classList.toggle('active', parseInt(b.getAttribute('data-speed'), 10) === multiplier);
+    b.classList.toggle('active', parseInt(b.getAttribute('data-speed'), 10) === playbackSpeed);
   });
 }
 window.setPlaySpeed = setPlaySpeed;
 
-function stepTimeline(secondsDelta) {
-  if (!timelineWaypoints.length) return;
-  const totalSeconds = 8 * 3600; // 8-hour shift approximation
-  const stepRatio = (secondsDelta * 30) / totalSeconds;
-  let newRatio = timelineProgressRatio + stepRatio;
-  newRatio = Math.max(0, Math.min(1, newRatio));
-  onScrubInput(newRatio * 100);
+function stepTimeline(fractionDelta) {
+  if (!timelineWaypoints.length || timelineTotalVirtualMs <= 0) return;
+  const currentRatio = timelineVirtualTimeMs / timelineTotalVirtualMs;
+  const newRatio = Math.max(0, Math.min(1, currentRatio + fractionDelta));
+  timelineVirtualTimeMs = newRatio * timelineTotalVirtualMs;
+  updatePlaybackVisuals(newRatio);
 }
 window.stepTimeline = stepTimeline;
 
 function onScrubInput(val) {
-  timelineProgressRatio = parseFloat(val) / 100;
-  updatePlaybackVisuals(timelineProgressRatio);
+  const ratio = Math.max(0, Math.min(1, parseFloat(val) / 1000));
+  timelineVirtualTimeMs = ratio * timelineTotalVirtualMs;
+  updatePlaybackVisuals(ratio);
 }
 window.onScrubInput = onScrubInput;
 
 function timelineAnimationTick(timestamp) {
   if (!isTimelinePlaying) return;
 
-  const dt = (timestamp - (lastAnimTimestamp || timestamp)) / 1000;
+  const dtMs = timestamp - (lastAnimTimestamp || timestamp);
   lastAnimTimestamp = timestamp;
 
-  // Base progress: complete entire circuit in 40s at 1x speed
-  const baseRate = 1 / 40;
-  timelineProgressRatio += baseRate * playbackSpeed * dt;
+  timelineVirtualTimeMs += dtMs * playbackSpeed;
 
-  if (timelineProgressRatio >= 1.0) {
-    timelineProgressRatio = 1.0;
+  if (timelineVirtualTimeMs >= timelineTotalVirtualMs) {
+    timelineVirtualTimeMs = timelineTotalVirtualMs;
     updatePlaybackVisuals(1.0);
-    togglePlayPause(false); // Stop at end
+    togglePlayPause(false);
     return;
   }
 
-  updatePlaybackVisuals(timelineProgressRatio);
+  updatePlaybackVisuals(timelineVirtualTimeMs / timelineTotalVirtualMs);
   animFrameId = requestAnimationFrame(timelineAnimationTick);
 }
 
 function updatePlaybackVisuals(ratio) {
   if (!timelineWaypoints || timelineWaypoints.length < 2) return;
+  const clampedRatio = Math.max(0, Math.min(1, ratio));
 
-  // Update Scrubber Range & Fill Bar
-  const pct = (ratio * 100).toFixed(1);
+  // Update Scrubber Range (0..1000) & Fill Bar
   const scrubber = document.getElementById('timelineScrubber');
   const fillBar = document.getElementById('timelineProgressFill');
-  if (scrubber) scrubber.value = pct;
-  if (fillBar) fillBar.style.width = `${pct}%`;
+  if (scrubber) scrubber.value = Math.round(clampedRatio * 1000);
+  if (fillBar) fillBar.style.width = `${(clampedRatio * 100).toFixed(1)}%`;
 
-  // Compute interpolated point along the sequence
-  const totalSegments = timelineWaypoints.length - 1;
-  const exactSegment = ratio * totalSegments;
-  const segIdx = Math.min(Math.floor(exactSegment), totalSegments - 1);
-  const segFraction = exactSegment - segIdx;
+  // Locate current segment via virtual duration lookup
+  const targetMs = clampedRatio * timelineTotalVirtualMs;
+  let segIdx = 0;
+  for (let i = 0; i < timelineCumulativeDurations.length - 1; i++) {
+    if (targetMs >= timelineCumulativeDurations[i] && targetMs <= timelineCumulativeDurations[i + 1]) {
+      segIdx = i;
+      break;
+    }
+    if (i === timelineCumulativeDurations.length - 2) segIdx = i;
+  }
+
+  const segStart = timelineCumulativeDurations[segIdx] || 0;
+  const segEnd = timelineCumulativeDurations[segIdx + 1] || 1;
+  const segSpan = Math.max(1, segEnd - segStart);
+  const segFraction = Math.max(0, Math.min(1, (targetMs - segStart) / segSpan));
 
   const p1 = timelineWaypoints[segIdx];
   const p2 = timelineWaypoints[segIdx + 1];
@@ -889,15 +1051,19 @@ function updatePlaybackVisuals(ratio) {
   const currentLat = p1.lat + (p2.lat - p1.lat) * segFraction;
   const currentLng = p1.lng + (p2.lng - p1.lng) * segFraction;
   const currentSpeed = p1.speed + (p2.speed - p1.speed) * segFraction;
+  const currentTs = Math.round(p1.timestamp + (p2.timestamp - p1.timestamp) * segFraction);
   const bearing = calculateBearing(p1.lat, p1.lng, p2.lat, p2.lng);
 
-  // Update Clock & HUD
-  document.getElementById('playerClock').textContent = p1.time;
-  document.getElementById('playerSpeed').textContent = `${currentSpeed.toFixed(0)} km/h`;
-  const dist = (ratio * 42.8).toFixed(1);
-  document.getElementById('playerDistance').textContent = `${dist} / 42.8 km`;
+  const segDistStart = timelineCumulativeDistancesKm[segIdx] || 0;
+  const segDistEnd = timelineCumulativeDistancesKm[segIdx + 1] || segDistStart;
+  const traveledKm = segDistStart + (segDistEnd - segDistStart) * segFraction;
 
-  // Update Map Traveled Polyline & Marker
+  // Update HH:MM:SS Clock, Speed & Dynamic Distance HUD
+  document.getElementById('playerClock').textContent = formatTimeHHMMSS(currentTs);
+  document.getElementById('playerSpeed').textContent = `${currentSpeed.toFixed(1)} km/h`;
+  document.getElementById('playerDistance').textContent = `${traveledKm.toFixed(1)} / ${timelineTotalDistanceKm.toFixed(1)} km`;
+
+  // Update Map Traveled Polyline, Marker & Camera Follow
   if (isGoogleMapsActive && googleMap) {
     if (googleTimelineTraveled) {
       const traveledPath = [];
@@ -915,6 +1081,9 @@ function updatePlaybackVisuals(ratio) {
         googleTimelineBikeMarker.setIcon(icon);
       }
     }
+    if (timelineCameraMode === 'follow') {
+      googleMap.panTo({ lat: currentLat, lng: currentLng });
+    }
   } else if (leafletMap) {
     if (leafletTimelineTraveled) {
       const traveledPoints = [];
@@ -930,6 +1099,9 @@ function updatePlaybackVisuals(ratio) {
       if (bikeEl) {
         bikeEl.style.transform = `rotate(${bearing}deg)`;
       }
+    }
+    if (timelineCameraMode === 'follow') {
+      leafletMap.panTo([currentLat, currentLng], { animate: false });
     }
   }
 }

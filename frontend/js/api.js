@@ -204,6 +204,10 @@ const api = {
       return DEMO_STORE.users.filter(u => u.role_name === 'FIELD_AGENT');
     }
 
+    if (endpoint.startsWith('/api/v1/manager/assets/') && endpoint.includes('/timeline')) {
+      return [];
+    }
+
     if (endpoint === '/api/v1/reports') {
       return DEMO_STORE.reports;
     }
@@ -320,6 +324,15 @@ const api = {
   // Manager Endpoints
   async getManagerAssets() {
     return this.request('/api/v1/manager/assets');
+  },
+
+  async getAgentTimeline(agentId, dateStr, startMs = null, endMs = null) {
+    const params = new URLSearchParams({ date: dateStr });
+    if (startMs != null && endMs != null) {
+      params.set('start_ms', String(startMs));
+      params.set('end_ms', String(endMs));
+    }
+    return this.request(`/api/v1/manager/assets/${encodeURIComponent(agentId)}/timeline?${params.toString()}`);
   },
 
   async listManagerReports() {

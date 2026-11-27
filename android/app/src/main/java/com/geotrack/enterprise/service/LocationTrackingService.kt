@@ -1,20 +1,24 @@
 package com.geotrack.enterprise.service
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.location.Location
 import android.os.Build
 import android.os.IBinder
 import android.os.Looper
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.google.android.gms.location.*
 import com.geotrack.enterprise.MainActivity
 import com.geotrack.enterprise.R
 import com.geotrack.enterprise.data.model.LocationTelemetry
 import com.geotrack.enterprise.data.preferences.AppPreferences
 import com.geotrack.enterprise.data.remote.ApiClient
+import com.geotrack.enterprise.data.remote.AuthExpiredException
 import com.geotrack.enterprise.util.GpsKalmanFilter
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.firstOrNull
@@ -70,12 +74,33 @@ class LocationTrackingService : Service() {
         return START_STICKY
     }
 
+    private fun hasLocationPermission(): Boolean {
+        val fine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val coarse = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        return fine || coarse
+    }
+
     @SuppressLint("MissingPermission")
     private fun startForegroundTracking() {
+        if (!hasLocationPermission()) {
+            LocationStateHolder.setSyncStatus("Location permission required")
+            LocationStateHolder.setTracking(false)
+            stopSelf()
+            return
+        }
+
         LocationStateHolder.setTracking(true)
+        LocationStateHolder.setSyncStatus("Acquiring GPS fix...")
 
         val notification = buildNotification("Starting Shift...", "Connecting to GPS satellites")
         startForeground(NOTIFICATION_ID, notification)
+
+        // Send immediate initial position if available so manager map updates right away
+        fusedLocationClient.lastLocation.addOnSuccessListener { lastLoc ->
+            if (lastLoc != null) {
+                processLocationUpdate(lastLoc)
+            }
+        }
 
         val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1500L)
             .setMinUpdateIntervalMillis(1000L)
@@ -91,7 +116,7 @@ class LocationTrackingService : Service() {
     }
 
     private fun processLocationUpdate(location: Location) {
-        if (location.accuracy > 45f) return
+        if (location.accuracy > 150f) return
 
         val nowMs = System.currentTimeMillis()
         val (filteredLat, filteredLng) = kalmanFilter.filter(
@@ -101,29 +126,30 @@ class LocationTrackingService : Service() {
             nowMs
         )
 
-        // Calculate delta distance
+        // Calculate delta distance (only count high-precision fixes for odometer accuracy)
         var isMoving = false
         val speedKmh = location.speed * 3.6f
         if (speedKmh > 2.5f) {
             isMoving = true
         }
 
-        previousLocation?.let { prev ->
-            val results = FloatArray(1)
-            Location.distanceBetween(prev.latitude, prev.longitude, filteredLat, filteredLng, results)
-            val distMeters = results[0]
+        if (location.accuracy <= 45f) {
+            previousLocation?.let { prev ->
+                val results = FloatArray(1)
+                Location.distanceBetween(prev.latitude, prev.longitude, filteredLat, filteredLng, results)
+                val distMeters = results[0]
 
-            if (distMeters in 2.0..300.0) {
-                val deltaKm = distMeters / 1000.0
-                LocationStateHolder.addDistance(deltaKm)
+                if (distMeters in 2.0..300.0) {
+                    val deltaKm = distMeters / 1000.0
+                    LocationStateHolder.addDistance(deltaKm)
+                }
+            }
+
+            previousLocation = Location("filtered").apply {
+                latitude = filteredLat
+                longitude = filteredLng
             }
         }
-
-        val dummyLoc = Location("filtered").apply {
-            latitude = filteredLat
-            longitude = filteredLng
-        }
-        previousLocation = dummyLoc
 
         val elapsedSec = ((nowMs - lastMovingSecondTimestamp) / 1000).coerceAtLeast(1)
         lastMovingSecondTimestamp = nowMs
@@ -136,12 +162,23 @@ class LocationTrackingService : Service() {
         serviceScope.launch {
             val user = preferences.userProfileFlow.firstOrNull()
             val agentName = user?.fullName ?: "Field Agent"
+            val empCode = user?.employeeCode ?: ""
+            val agentId = user?.id ?: ""
             val token = preferences.authTokenFlow.firstOrNull()
             val apiUrl = preferences.apiUrlFlow.firstOrNull() ?: AppPreferences.DEFAULT_API_URL
+
+            if (token.isNullOrBlank() || preferences.isTokenExpired(token)) {
+                preferences.clearSession()
+                LocationStateHolder.setSyncStatus("Session expired — please sign in again")
+                withContext(Dispatchers.Main) { stopForegroundTracking() }
+                return@launch
+            }
 
             val telemetry = LocationTelemetry(
                 deviceId = deviceId,
                 agentName = agentName,
+                employeeCode = empCode,
+                agentId = agentId,
                 lat = filteredLat,
                 lng = filteredLng,
                 speedKmh = speedKmh,
@@ -156,8 +193,19 @@ class LocationTrackingService : Service() {
 
             LocationStateHolder.updateTelemetry(telemetry)
 
-            // Stream to backend API
-            apiClient.sendTelemetry(apiUrl, token, telemetry)
+            // Stream to backend API and reflect sync status
+            val syncResult = apiClient.sendTelemetry(apiUrl, token, telemetry)
+            syncResult.onSuccess {
+                LocationStateHolder.setSyncStatus("Synced to Manager • $timeStr")
+            }.onFailure { err ->
+                if (err is AuthExpiredException) {
+                    preferences.clearSession()
+                    LocationStateHolder.setSyncStatus("Session expired — please sign in again")
+                    withContext(Dispatchers.Main) { stopForegroundTracking() }
+                    return@launch
+                }
+                LocationStateHolder.setSyncStatus("Sync retrying (${err.message ?: "network"})")
+            }
 
             // Update Notification
             val odo = LocationStateHolder.odometerKm.value

@@ -178,7 +178,7 @@ fun LoginScreen(
                                         errorMessage = resp.message ?: "Authentication failed."
                                     }
                                 }.onFailure { err ->
-                                    errorMessage = "Login failed: ${err.localizedMessage}"
+                                    errorMessage = err.message ?: "Unable to sign in. Please check your credentials."
                                 }
                                 isLoading = false
                             }

@@ -167,9 +167,9 @@
           </div>
 
           <div class="date-chips-row">
-            <button class="date-chip active" id="chipToday" onclick="selectShiftDate('TODAY')">Today (Nov 22)</button>
-            <button class="date-chip" id="chipYesterday" onclick="selectShiftDate('YESTERDAY')">Nov 21</button>
-            <button class="date-chip" id="chipDayBefore" onclick="selectShiftDate('DAY_BEFORE')">Nov 20</button>
+            <button class="date-chip active" id="chipToday" onclick="selectShiftDate('TODAY')">Today</button>
+            <button class="date-chip" id="chipYesterday" onclick="selectShiftDate('YESTERDAY')">Yesterday</button>
+            <button class="date-chip" id="chipDayBefore" onclick="selectShiftDate('DAY_BEFORE')">2 Days Ago</button>
           </div>
         </div>
 
@@ -178,31 +178,31 @@
             <span style="font-weight:700; font-size:0.9rem;" id="timelineShiftTitle">
               <i class="fa-regular fa-calendar-check" style="color:var(--accent-cyan); margin-right:6px;"></i> Shift Route Summary
             </span>
-            <span class="badge badge-approved" id="timelineShiftStatus">LOGGED</span>
+            <span class="badge badge-submitted" id="timelineShiftStatus">NO DATA</span>
           </div>
 
           <div class="shift-stats-grid">
             <div class="shift-stat-item">
-              <span class="num" id="timelineDistanceVal">42.8 km</span>
+              <span class="num" id="timelineDistanceVal">0.0 km</span>
               <span class="lbl">Distance Traveled</span>
             </div>
             <div class="shift-stat-item">
-              <span class="num" id="timelineMovingTimeVal">2h 45m</span>
+              <span class="num" id="timelineMovingTimeVal">0m</span>
               <span class="lbl">Moving Time</span>
             </div>
             <div class="shift-stat-item">
-              <span class="num" id="timelineIdleTimeVal">45m</span>
+              <span class="num" id="timelineIdleTimeVal">0m</span>
               <span class="lbl">Idle / Stops</span>
             </div>
             <div class="shift-stat-item">
-              <span class="num" id="timelineFuelVal">₹ 128.40</span>
-              <span class="lbl">Fuel Claimed</span>
+              <span class="num" id="timelineFuelVal">₹ 0.00</span>
+              <span class="lbl">Est. Fuel Cost</span>
             </div>
           </div>
         </div>
 
         <div style="margin-top:16px;">
-          <h4 style="font-size:0.82rem; text-transform:uppercase; color:var(--text-secondary); margin-bottom:10px; letter-spacing:0.5px;">Checkpoints & Delivery Stops</h4>
+          <h4 style="font-size:0.82rem; text-transform:uppercase; color:var(--text-secondary); margin-bottom:10px; letter-spacing:0.5px;">Recorded GPS Waypoints</h4>
           <div id="timelineWaypointsList" class="timeline-waypoints-list">
             <!-- Dynamic stop checkpoints -->
           </div>
@@ -224,10 +224,12 @@
       <!-- Floating Bottom Timeline Player Dock (GSAP Animated) -->
       <div id="timelinePlayerDock" class="timeline-player-dock" style="display:none; transform:translateY(80px); opacity:0;">
         <div class="player-top-bar">
-          <div style="display:flex; align-items:center; gap:8px;">
-            <div class="player-clock-badge">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <div class="player-clock-badge" title="Current / End Shift Time (HH:MM:SS)">
               <i class="fa-regular fa-clock" style="color:var(--accent-cyan);"></i>
-              <span id="playerClock">09:00 AM</span>
+              <span id="playerClock">00:00:00</span>
+              <span style="color:var(--text-muted); font-weight:400;">/</span>
+              <span id="playerEndClock" style="color:var(--text-secondary); font-weight:600;">00:00:00</span>
             </div>
             <div class="player-date-pill" id="playerDatePill">
               <i class="fa-solid fa-calendar-day" style="color:var(--accent-orange); margin-right:4px;"></i> 2026-11-22
@@ -235,49 +237,75 @@
           </div>
 
           <div class="player-status-tag" id="playerLegTitle">
-            <i class="fa-solid fa-route"></i> Route Replay Active
+            <i class="fa-solid fa-route"></i> Route Replay
           </div>
 
-          <!-- Rahul Sharma Special Simulation Button -->
-          <div id="rahulSimulateContainer" style="display:none;">
-            <button class="btn btn-simulate" onclick="runRahulSimulation()">
-              <i class="fa-solid fa-bolt"></i> <span>Simulate Pune Route</span>
+          <button type="button" class="btn-dock-close" onclick="exitTimelineMode()" title="Exit timeline">&times;</button>
+        </div>
+
+        <!-- Time Window Filter & Map Replay Options (Matches GeoTrack Live) -->
+        <div class="player-options-bar">
+          <div class="timeline-opt-chip" title="Filter specific time window (HH:MM:SS)">
+            <i class="fa-regular fa-clock" style="color:var(--accent-cyan);"></i>
+            <span class="opt-tag">From</span>
+            <input type="time" id="timelineTimeFrom" class="timeline-time-input" step="1" onchange="applyTimelineTimeFilter()" />
+            <span class="opt-tag">To</span>
+            <input type="time" id="timelineTimeTo" class="timeline-time-input" step="1" onchange="applyTimelineTimeFilter()" />
+            <button type="button" class="btn-time-reset" onclick="resetTimelineTimeRange()" title="Reset to Full Shift Range">
+              <i class="fa-solid fa-rotate-left"></i>
             </button>
           </div>
 
-          <button class="btn-dock-close" onclick="exitTimelineMode()" title="Exit timeline">&times;</button>
+          <div class="timeline-opt-chip" title="Route Drawing Style">
+            <i class="fa-solid fa-paintbrush" style="color:var(--accent-cyan);"></i>
+            <select id="selectTrailStyle" class="timeline-opt-select" onchange="onTrailStyleChange(this.value)">
+              <option value="ghost">Ghost Path + Dynamic Trail</option>
+              <option value="dynamic">Pure Trail (Forms While Moving)</option>
+              <option value="full">Full Route Outline (Speed Colors)</option>
+            </select>
+          </div>
+
+          <div class="timeline-opt-chip" title="Camera Behavior">
+            <i class="fa-solid fa-video" style="color:var(--accent-cyan);"></i>
+            <select id="selectCameraMode" class="timeline-opt-select" onchange="onCameraModeChange(this.value)">
+              <option value="fit">Fit Entire Route</option>
+              <option value="follow">Follow Vehicle (Center)</option>
+              <option value="free">Free Pan (Manual)</option>
+            </select>
+          </div>
         </div>
 
         <!-- Scrubber Bar Row -->
         <div class="player-scrubber-row">
-          <span class="scrub-time" id="scrubStart">09:00 AM</span>
+          <span class="scrub-time" id="scrubStart">09:00:00</span>
           <div class="scrubber-track-wrapper">
-            <input type="range" id="timelineScrubber" min="0" max="100" value="0" step="0.1" class="timeline-slider" oninput="onScrubInput(this.value)">
+            <input type="range" id="timelineScrubber" min="0" max="1000" value="0" step="1" class="timeline-slider" oninput="onScrubInput(this.value)">
             <div id="timelineProgressFill" class="slider-progress-fill"></div>
           </div>
-          <span class="scrub-time" id="scrubEnd">05:30 PM</span>
+          <span class="scrub-time" id="scrubEnd">16:25:00</span>
         </div>
 
         <!-- Controls Row -->
         <div class="player-controls-row">
           <div class="playback-buttons">
-            <button class="ctrl-btn" onclick="stepTimeline(-5)" title="Rewind 5s"><i class="fa-solid fa-backward-step"></i></button>
-            <button class="ctrl-btn play-pause-btn" id="btnPlayPause" onclick="togglePlayPause()" title="Play / Pause">
+            <button type="button" class="ctrl-btn" onclick="stepTimeline(-0.05)" title="Step Back"><i class="fa-solid fa-backward-step"></i></button>
+            <button type="button" class="ctrl-btn play-pause-btn" id="btnPlayPause" onclick="togglePlayPause()" title="Play / Pause">
               <i class="fa-solid fa-play" id="playPauseIcon"></i>
             </button>
-            <button class="ctrl-btn" onclick="stepTimeline(5)" title="Forward 5s"><i class="fa-solid fa-forward-step"></i></button>
+            <button type="button" class="ctrl-btn" onclick="stepTimeline(0.05)" title="Step Forward"><i class="fa-solid fa-forward-step"></i></button>
           </div>
 
           <div class="player-telemetry-hud">
-            <span><i class="fa-solid fa-gauge" style="color:var(--accent-orange);"></i> <strong id="playerSpeed">0 km/h</strong></span>
-            <span><i class="fa-solid fa-road" style="color:var(--accent-cyan);"></i> <strong id="playerDistance">0.0 / 42.8 km</strong></span>
+            <span><i class="fa-solid fa-gauge" style="color:var(--accent-orange);"></i> <strong id="playerSpeed">0.0 km/h</strong></span>
+            <span><i class="fa-solid fa-bolt" style="color:var(--accent-green);"></i> Max: <strong id="playerMaxSpeed">0 km/h</strong></span>
+            <span><i class="fa-solid fa-road" style="color:var(--accent-cyan);"></i> <strong id="playerDistance">0.0 / 0.0 km</strong></span>
           </div>
 
           <div class="speed-selector" role="group" aria-label="Playback Speed">
-            <button class="speed-btn active" data-speed="1" onclick="setPlaySpeed(1)">1x</button>
-            <button class="speed-btn" data-speed="2" onclick="setPlaySpeed(2)">2x</button>
-            <button class="speed-btn" data-speed="5" onclick="setPlaySpeed(5)">5x</button>
-            <button class="speed-btn" data-speed="10" onclick="setPlaySpeed(10)">10x</button>
+            <button type="button" class="speed-btn active" data-speed="1" onclick="setPlaySpeed(1)">1x</button>
+            <button type="button" class="speed-btn" data-speed="2" onclick="setPlaySpeed(2)">2x</button>
+            <button type="button" class="speed-btn" data-speed="5" onclick="setPlaySpeed(5)">5x</button>
+            <button type="button" class="speed-btn" data-speed="10" onclick="setPlaySpeed(10)">10x</button>
           </div>
         </div>
       </div>

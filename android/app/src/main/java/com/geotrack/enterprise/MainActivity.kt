@@ -13,6 +13,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import com.geotrack.enterprise.data.preferences.AppPreferences
+import com.geotrack.enterprise.data.remote.ApiClient
+import com.geotrack.enterprise.data.remote.SessionStatus
 import com.geotrack.enterprise.ui.MainScreen
 import com.geotrack.enterprise.ui.screens.LoginScreen
 import com.geotrack.enterprise.ui.theme.DarkBackground
@@ -21,6 +23,7 @@ import com.geotrack.enterprise.ui.theme.GeoTrackTheme
 class MainActivity : ComponentActivity() {
 
     private lateinit var preferences: AppPreferences
+    private val apiClient = ApiClient()
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -41,7 +44,24 @@ class MainActivity : ComponentActivity() {
                     color = DarkBackground
                 ) {
                     val authToken by preferences.authTokenFlow.collectAsState(initial = null)
-                    var isLoggedIn by remember(authToken) { mutableStateOf(!authToken.isNullOrBlank()) }
+                    val apiUrl by preferences.apiUrlFlow.collectAsState(initial = AppPreferences.DEFAULT_API_URL)
+                    var isLoggedIn by remember { mutableStateOf(false) }
+
+                    LaunchedEffect(authToken, apiUrl) {
+                        val token = authToken
+                        if (token.isNullOrBlank() || preferences.isTokenExpired(token)) {
+                            if (!token.isNullOrBlank()) preferences.clearSession()
+                            isLoggedIn = false
+                        } else {
+                            val status = apiClient.verifySession(apiUrl, token)
+                            if (status == SessionStatus.UNAUTHORIZED) {
+                                preferences.clearSession()
+                                isLoggedIn = false
+                            } else {
+                                isLoggedIn = true
+                            }
+                        }
+                    }
 
                     if (isLoggedIn) {
                         MainScreen(

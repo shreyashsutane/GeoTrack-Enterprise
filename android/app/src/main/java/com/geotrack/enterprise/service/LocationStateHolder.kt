@@ -21,6 +21,9 @@ object LocationStateHolder {
     private val _idleTimeSeconds = MutableStateFlow(0L)
     val idleTimeSeconds: StateFlow<Long> = _idleTimeSeconds.asStateFlow()
 
+    private val _syncStatus = MutableStateFlow<String?>(null)
+    val syncStatus: StateFlow<String?> = _syncStatus.asStateFlow()
+
     var shiftStartTimeMs: Long = 0L
 
     fun setTracking(active: Boolean) {
@@ -28,6 +31,13 @@ object LocationStateHolder {
         if (active && shiftStartTimeMs == 0L) {
             shiftStartTimeMs = System.currentTimeMillis()
         }
+        if (!active) {
+            _syncStatus.value = null
+        }
+    }
+
+    fun setSyncStatus(status: String?) {
+        _syncStatus.value = status
     }
 
     fun updateTelemetry(telemetry: LocationTelemetry) {

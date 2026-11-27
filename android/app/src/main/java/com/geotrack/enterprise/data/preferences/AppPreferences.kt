@@ -2,6 +2,7 @@ package com.geotrack.enterprise.data.preferences
 
 import android.content.Context
 import android.provider.Settings
+import android.util.Base64
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -11,6 +12,7 @@ import com.google.gson.Gson
 import com.geotrack.enterprise.data.model.UserProfile
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import org.json.JSONObject
 import java.util.UUID
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "geotrack_enterprise_prefs")
@@ -64,6 +66,21 @@ class AppPreferences(private val context: Context) {
         context.dataStore.edit { prefs ->
             prefs.remove(KEY_AUTH_TOKEN)
             prefs.remove(KEY_USER_PROFILE)
+        }
+    }
+
+    fun isTokenExpired(token: String?): Boolean {
+        if (token.isNullOrBlank()) return true
+        return try {
+            val parts = token.split(".")
+            if (parts.size < 2) return true
+            val payloadJson = String(Base64.decode(parts[1], Base64.URL_SAFE or Base64.NO_WRAP))
+            val expSec = JSONObject(payloadJson).optLong("exp", 0L)
+            if (expSec <= 0L) return true
+            // Treat tokens expiring within 30s as expired
+            (expSec * 1000L) <= (System.currentTimeMillis() + 30_000L)
+        } catch (e: Exception) {
+            true
         }
     }
 

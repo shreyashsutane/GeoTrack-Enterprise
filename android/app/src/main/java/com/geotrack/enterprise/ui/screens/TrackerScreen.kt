@@ -1,8 +1,13 @@
 package com.geotrack.enterprise.ui.screens
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -36,9 +41,36 @@ fun TrackerScreen(
     val context = LocalContext.current
     val isTracking by LocationStateHolder.isTracking.collectAsState()
     val telemetry by LocationStateHolder.latestTelemetry.collectAsState()
+    val syncStatus by LocationStateHolder.syncStatus.collectAsState()
     val odometerKm by LocationStateHolder.odometerKm.collectAsState()
     val movingSec by LocationStateHolder.movingTimeSeconds.collectAsState()
     val idleSec by LocationStateHolder.idleTimeSeconds.collectAsState()
+
+    val startTrackingService = {
+        val intent = Intent(context, LocationTrackingService::class.java).apply {
+            action = if (isTracking) LocationTrackingService.ACTION_STOP else LocationTrackingService.ACTION_START
+        }
+        if (isTracking) {
+            context.startService(intent)
+        } else {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        }
+    }
+
+    val locationPermLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        if (grants[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            grants[Manifest.permission.ACCESS_COARSE_LOCATION] == true) {
+            startTrackingService()
+        } else {
+            LocationStateHolder.setSyncStatus("Location permission denied — grant in Settings")
+        }
+    }
 
     val movingHours = movingSec / 3600
     val movingMinutes = (movingSec % 3600) / 60
@@ -136,17 +168,15 @@ fun TrackerScreen(
         ) {
             Button(
                 onClick = {
-                    val intent = Intent(context, LocationTrackingService::class.java).apply {
-                        action = if (isTracking) LocationTrackingService.ACTION_STOP else LocationTrackingService.ACTION_START
-                    }
-                    if (isTracking) {
-                        context.startService(intent)
+                    val hasFine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                    val hasCoarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                    if (!isTracking && !hasFine && !hasCoarse) {
+                        locationPermLauncher.launch(arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        ))
                     } else {
-                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                            context.startForegroundService(intent)
-                        } else {
-                            context.startService(intent)
-                        }
+                        startTrackingService()
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
@@ -173,7 +203,21 @@ fun TrackerScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(28.dp))
+        if (!syncStatus.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(14.dp))
+            val isError = syncStatus!!.contains("expired", ignoreCase = true) ||
+                syncStatus!!.contains("denied", ignoreCase = true) ||
+                syncStatus!!.contains("required", ignoreCase = true)
+            Text(
+                text = syncStatus!!,
+                color = if (isError) AccentRed else AccentGreen,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(modifier = Modifier.height(14.dp))
+        } else {
+            Spacer(modifier = Modifier.height(28.dp))
+        }
 
         // Live Telemetry 4-Card Grid
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
