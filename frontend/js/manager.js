@@ -1282,6 +1282,7 @@ async function loadAssignedFleet() {
 
     // Refresh markers if in fleet view
     if (currentNavView === 'FLEET_ALL') {
+      updateMapHUD('All Fleet Overview', `${assignedAgents.length} assigned assets monitored`, onlineCount > 0);
       updateMapMarkers();
     }
 

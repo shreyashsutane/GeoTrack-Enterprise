@@ -4,9 +4,13 @@
  */
 
 const CUSTOM_API_URL = localStorage.getItem('geotrack_api_url');
-const API_BASE_URL = CUSTOM_API_URL || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+const IS_LOCAL_HOST = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const IS_RENDER_HOST = window.location.hostname.endsWith('onrender.com');
+const IS_STATIC_DEMO_HOST = window.location.hostname.endsWith('github.io');
+const HAS_BACKEND_SERVER = Boolean(CUSTOM_API_URL) || IS_LOCAL_HOST || IS_RENDER_HOST;
+const API_BASE_URL = CUSTOM_API_URL || (IS_LOCAL_HOST
   ? 'http://localhost:8080'
-  : (window.location.hostname.endsWith('onrender.com') ? '' : 'https://geotrack-enterprise.onrender.com'));
+  : (IS_RENDER_HOST ? '' : 'https://geotrack-enterprise.onrender.com'));
 
 // Local Demo State for static hosting (e.g. GitHub Pages) when backend is offline
 const DEMO_STORE = {
@@ -47,7 +51,12 @@ const DEMO_STORE = {
 
 const api = {
   getToken() {
-    return localStorage.getItem('geotrack_token') || '';
+    const token = localStorage.getItem('geotrack_token') || '';
+    if (token.startsWith('demo-jwt-token-') && HAS_BACKEND_SERVER) {
+      this.clearSession();
+      return '';
+    }
+    return token;
   },
 
   setSession(token, user) {
@@ -141,8 +150,8 @@ const api = {
 
       return data;
     } catch (err) {
-      // Graceful offline fallback ONLY when backend is unreachable (e.g. network down)
-      if ((window.location.hostname.endsWith('github.io') || !API_BASE_URL) && err.name === 'TypeError' && err.message.includes('fetch')) {
+      // Graceful offline fallback ONLY on static GitHub Pages when backend is unreachable
+      if (IS_STATIC_DEMO_HOST && !CUSTOM_API_URL && err.name === 'TypeError' && err.message.includes('fetch')) {
         return this.demoFallback(endpoint, options);
       }
       console.error(`[API Error] ${endpoint}:`, err);
@@ -274,8 +283,8 @@ const api = {
         return res;
       }
     } catch (err) {
-      // If we received an explicit error from server or custom URL, propagate it directly
-      if (API_BASE_URL) throw err;
+      // Never silently switch to fake demo data when running against a real backend
+      if (HAS_BACKEND_SERVER || CUSTOM_API_URL || !IS_STATIC_DEMO_HOST) throw err;
     }
 
     // Demo Mode Auto-Resolver only when zero backend URL is available
