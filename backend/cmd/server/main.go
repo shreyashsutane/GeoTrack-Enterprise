@@ -98,7 +98,10 @@ func main() {
 
 	if frontendDir != "" {
 		fileServer := http.FileServer(http.Dir(frontendDir))
-		mux.Handle("GET /", fileServer)
+		mux.Handle("GET /", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Cache-Control", "no-cache")
+			fileServer.ServeHTTP(w, r)
+		}))
 		log.Printf("[Server] Serving web dashboard & assets from %s", frontendDir)
 	}
 
